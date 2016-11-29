@@ -1,7 +1,10 @@
 const deis = require("../lib/deis");
 
-
 process.env.DEBUG = true;
+
+if(!process.env.DEIS_INTEGRATION_TEST) {
+  return;
+}
 
 describe("Deis", () => {
   

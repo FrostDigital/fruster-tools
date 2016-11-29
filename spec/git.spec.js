@@ -5,6 +5,10 @@ const uuid = require("uuid");
 
 process.env.DEBUG = true;
 
+if(!process.env.GIT_INTEGRATION_TEST) {
+  return;
+}
+
 describe("Git", () => {
 
   const testRepoTargetDir = path.join(__dirname, ".tmp", "test-repo");

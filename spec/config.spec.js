@@ -6,19 +6,18 @@ process.env.DEBUG = true;
 
 describe("Config", () => {
   
-  fit("should read frusters.json", () => {              
+  it("should read frusters.json", () => {              
     let frusterConfig = config.getFrusterConfig("agada");        
     expect(frusterConfig.env).toBeDefined();        
     expect(frusterConfig.services).toBeDefined();          
     expect(frusterConfig.services[0].name).toBe("ag-fruster-user-service");          
   });
 
-  fit("should read fruster-{frusterName}.json", () => {              
+  it("should read fruster-{frusterName}.json", () => {              
     let frusterConfig = config.getFrusterConfig("paceup");        
     expect(frusterConfig.env).toBeDefined();        
     expect(frusterConfig.services).toBeDefined();          
     expect(frusterConfig.services[0].name).toBe("fruster-api-gateway");          
   });
-
  
 });
