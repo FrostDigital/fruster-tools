@@ -1,0 +1,25 @@
+{
+  "name": "fruster-tools",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "node ./spec/support/jasmine-runner.js"
+  },
+  "bin": {
+    "fruster": "./cli/fruster.js"
+  },
+  "dependencies": {
+    "commander": "git+https://github.com/tj/commander.js.git",
+    "fs-extra": "^1.0.0",    
+    "request": "^2.79.0",
+    "request-promise": "^4.1.1",
+    "uuid": "^2.0.3"
+  },
+  "devDependencies": {
+    "jasmine": "^2.4.1",
+    "jasmine-spec-reporter": "^2.7.0"
+  },
+  "engines": {
+    "node": "6.4.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "env": [
+    "LOG_LEVEL=DEBUG"
+  ],
+  "services": [
+    {
+      "name": "fruster-api-gateway",
+      "repo": "http://github.com/frostdigital/fruster-api-gateway",      
+      "build": "npm install",
+      "start": "npm start",
+      "test": "npm test"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "config": {
+    "BUS": "nats://localhost:4222"
+  },
+  "services": [
+    {
+      "url": "frostdigital/fruster-api-gateway",
+      "build": "npm install",
+      "start": "npm start",
+      "test": "npm test"
+    },
+    {
+      "url": "frostdigital/fruster-user-service",
+      "build": "npm install",
+      "start": "npm start",
+      "test": "npm test"
+    },
+    {
+      "url": "frostdigital/fruster-auth-service",
+      "build": "npm install",
+      "start": "npm start",
+      "test": "npm test"
+    },
+    {
+      "url": "frostdigital/paceup-garmin-connector",
+      "build": "mvn clean compile",
+      "start": "java -jar target/paceup-garmin-connector.jar",
+      "test": "mvn test"
+    }
+  ]
+}
