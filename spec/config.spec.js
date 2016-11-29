@@ -19,5 +19,9 @@ describe("Config", () => {
     expect(frusterConfig.services).toBeDefined();          
     expect(frusterConfig.services[0].name).toBe("fruster-api-gateway");          
   });
+
+  it("should run", function() {
+    expect(true).toBe(true);
+  });
  
 });
