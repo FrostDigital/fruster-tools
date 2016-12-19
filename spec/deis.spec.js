@@ -6,6 +6,9 @@ if(!process.env.DEIS_INTEGRATION_TEST) {
   return;
 }
 
+const deisUser = process.env.DEIS_USERNAME;
+const deisPassword = process.env.DEIS_PASSWORD;
+
 describe("Deis", () => {
   
   it("should list deis apps", done => {              
@@ -36,7 +39,7 @@ describe("Deis", () => {
   });
   
   it("should login", done => {              
-    deis.login("http://deis.c1.fruster.se", "joel", "vinglon2016")
+    deis.login("http://deis.c1.fruster.se", deisUser, deisPassword)
       .then(() => {
         done();
       })
