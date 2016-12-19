@@ -7,6 +7,7 @@ const conf = require('../conf');
 
 program    
   .description(`
+  	SUPER EXPERIMENTAL!!!
 Runs fruster locally. Will start services defined in local service registry in fruster home (${conf.frusterHome}).
 `
   )

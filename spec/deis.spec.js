@@ -21,7 +21,7 @@ describe("Deis", () => {
   });
 
   it("should list deis apps with pattern", done => {              
-    deis.apps("pu-")
+    deis.apps("pu-*")
       .then(apps => {
         expect(apps.length).toBeGreaterThan(0);        
         done();
@@ -39,11 +39,18 @@ describe("Deis", () => {
   });
   
   it("should login", done => {              
-    deis.login("http://deis.c1.fruster.se", deisUser, deisPassword)
-      .then(() => {
-        done();
-      })
-      .catch(done.fail);
+
+    if(deisUser && deisPassword) {
+      deis.login("http://deis.c1.fruster.se", deisUser, deisPassword)
+        .then(() => {
+          done();
+        })
+        .catch(done.fail);      
+    } else {
+      console.log("WARN: Skipping");
+      done();
+    }
+
   });
 
   it("should fail to login with invalid password", done => {              

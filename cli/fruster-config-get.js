@@ -20,7 +20,7 @@ const appName = program.app;
 
 deis.apps(appName)
   .then(apps => {    
-    return Promise.all(apps.map(app => deis.getConfig(app)));    
+    return Promise.all(apps.map(app => deis.getConfig(app.id)));    
   })
   .then(outputs => {
     console.log(outputs.join("\n"));

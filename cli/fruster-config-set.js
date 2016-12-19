@@ -28,7 +28,7 @@ if(!config.length) {
 deis.apps(appName)
   .then(apps => {
     console.log(`Setting config on ${apps.length} app(s) - this may take a while...`);
-    return Promise.all(apps.map(app => deis.setConfig(app, config)));    
+    return Promise.all(apps.map(app => deis.setConfig(app.id, config)));    
   })
   .then(() => {
     console.log(`

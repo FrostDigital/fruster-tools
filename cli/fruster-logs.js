@@ -29,10 +29,10 @@ if(appName.indexOf("*") > -1) {
   showLogs(appName);
 }
 
-function showLogs(appName) {
-  return kube.logs(appName, tail)
+function showLogs(app) {
+  return kube.logs(app.id, tail)
     .then(logOutput => {
-      const header = `==========  ${appName}  ==========`;
+      const header = `==========  ${app.id}  ==========`;
       const separator = Array(header.length+1).join("=");      
       
       console.log("\n\n");
