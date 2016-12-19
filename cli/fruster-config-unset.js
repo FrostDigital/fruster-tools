@@ -12,7 +12,7 @@ same config on multiple apps.
 Example:
 
 # Set BUS on all apps with name that starts with "ag-"
-$ fruster config unset SYSLOG LOG_LEVEL -a ag-*
+$ fruster config unset SYSLOG LOG_LEVEL -a ag-
 `)
   .option("-a, --app <app name>", "Application name or pattern with wildcard")  
   .parse(process.argv);

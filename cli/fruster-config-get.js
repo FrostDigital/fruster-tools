@@ -6,12 +6,13 @@ const deis = require('../lib/deis');
 program    
   .description(
 `
-Get config for app(s). Supports wildcard pattern on app name to get config for
+Get config for app(s). Supports pattern on app name to get config for
 multiple apps. 
 
 Example:
 
-$ fruster config get -a ag-*
+# Returns all apps starting with "ag"
+$ fruster config get -a ag	
 `)
   .option("-a, --app <app name>", "Application name or pattern with wildcard")  
   .parse(process.argv);
