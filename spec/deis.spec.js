@@ -20,10 +20,19 @@ describe("Deis", () => {
       .catch(done.fail);
   });
 
-  it("should list deis apps with pattern", done => {              
-    deis.apps("pu-*")
+  it("should list deis apps by prefix", done => {              
+    deis.apps("pu-")
       .then(apps => {
         expect(apps.length).toBeGreaterThan(0);        
+        done();
+      })
+      .catch(done.fail);
+  });
+
+  it("should get single app", done => {              
+    deis.apps("pu-api-gateway")
+      .then(apps => {
+        expect(apps.length).toBe(1);        
         done();
       })
       .catch(done.fail);

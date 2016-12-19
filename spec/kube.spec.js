@@ -9,7 +9,7 @@ describe("Kube", () => {
   
   it("should get logs", done => {              
 
-    kube.logs("ag-api-gateway")
+    kube.logs("pu-api-gateway")
       .then(() => {        
         done();
       })
