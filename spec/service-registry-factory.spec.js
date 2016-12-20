@@ -21,16 +21,22 @@ describe("Service registry", () => {
 		expect(paceup.getServices("*api*").length).toBe(1);
 	});
 
+	it("should clone or update services", done => {
 
-	fit("should clone or update services", done => {
-
-		paceup.cloneOrUpdateServices().then(done).catch(err => {
-			console.log(err);
-			done.fail(err);
-		});
-
-		//expect(paceup.getServices("*api*").length).toBe(1);
+		paceup.cloneOrUpdateServices()
+			.then(repos => {
+				done();
+			})
+			.catch(done.fail);
 	});
 
+	// it("should start all services", done => {
+
+	// 	paceup.start()
+	// 		.then(repos => {
+	// 			done();
+	// 		})
+	// 		.catch(done.fail);
+	// });
 
 });

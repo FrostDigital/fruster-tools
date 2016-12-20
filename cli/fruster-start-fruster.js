@@ -22,13 +22,15 @@ $ fruster start-fruster ./agada.json --exclude "*api-g*"
   )
   .parse(process.argv);
 
-const frusterName = program.args[0];
+const serviceRegPath = program.args[0];
 
-if(!frusterName) {
+if(!serviceRegPath) {
   console.error("ERROR: Missing name of fruster to start");
   process.exit(-1);
 }
 
+let svcReg = require('../lib/service-registry').create(serviceRegPath);
 
-
-
+svcReg.cloneOrUpdateServices()
+	.then(() => svcReg.build())
+	.then(() => svcReg.start());
