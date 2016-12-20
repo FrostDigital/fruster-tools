@@ -9,6 +9,13 @@
       "build": "npm install",
       "start": "npm start",
       "test": "npm test"
+    },
+    {
+      "name": "fruster-auth-service",
+      "repo": "http://github.com/frostdigital/fruster-auth-service",      
+      "build": "npm install",
+      "start": "npm start",
+      "test": "npm test"
     }
   ]
 }
