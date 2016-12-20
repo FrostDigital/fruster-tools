@@ -12,7 +12,7 @@ multiple apps.
 Example:
 
 # Returns all apps starting with "ag"
-$ fruster config get -a ag	
+$ fruster config get -a "ag*"	
 `)
   .option("-a, --app <app name>", "Application name or pattern with wildcard")  
   .parse(process.argv);

@@ -9,7 +9,12 @@ program
   .description(`
 Show logs of app(s). Will get logs via kube instead of deis. 
 
-Support wildcard pattern for app name.
+Supports wildcard pattern for app name.
+
+Examples:
+
+$ fruster logs "ag-api-g*"
+$ fruster logs ag-api-gateway
 `)
   .parse(process.argv);
 
