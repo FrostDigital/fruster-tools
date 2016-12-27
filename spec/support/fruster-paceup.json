@@ -2,6 +2,7 @@
   "env": [
     "LOG_LEVEL=DEBUG"
   ],
+  "name": "test",
   "services": [
     {
       "name": "fruster-api-gateway",

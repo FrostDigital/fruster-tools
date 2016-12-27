@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 const program = require('commander');
-const kube = require('../lib/kube');
-const deis = require('../lib/deis');
+// const kube = require('../lib/kube');
+// const deis = require('../lib/deis');
 const conf = require('../conf');
+const runner = require("../lib/runner");
 
 program    
   .option("--exclude", "Wildcard pattern of services to exclude")
@@ -29,8 +30,10 @@ if(!serviceRegPath) {
   process.exit(-1);
 }
 
-let svcReg = require('../lib/service-registry').create(serviceRegPath);
+runner.start(serviceRegPath);
 
-svcReg.cloneOrUpdateServices()
-	.then(() => svcReg.build())
-	.then(() => svcReg.start());
+// let svcReg = require('../lib/service-registry').create(serviceRegPath);
+
+// svcReg.cloneOrUpdateServices()
+// 	.then(() => svcReg.build())
+// 	.then(() => svcReg.start());

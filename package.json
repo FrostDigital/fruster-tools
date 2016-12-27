@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "commander": "git+https://github.com/tj/commander.js.git",
-    "fs-extra": "^1.0.0",    
+    "fs-extra": "^1.0.0",
     "request": "^2.79.0",
     "request-promise": "^4.1.1",
+    "terminal-kit": "^0.26.0",
     "uuid": "^2.0.3"
   },
   "devDependencies": {
