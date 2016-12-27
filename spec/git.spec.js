@@ -66,6 +66,10 @@ describe("Git", () => {
         .then(done.fail)
         .catch(done);
     });
+
+    it("should check if dir is git repo", () => {              
+      expect(git.isRepo(testRepoFullUrl)).toBeTruthy();
+    });
   });
 
   describe("branches", () => {

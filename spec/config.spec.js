@@ -5,7 +5,7 @@ const config = require("../lib/config");
 process.env.DEBUG = true;
 
 describe("Config", () => {
-  
+    
   it("should read frusters.json", () => {              
     let frusterConfig = config.getFrusterConfig("agada");        
     expect(frusterConfig.env).toBeDefined();        
