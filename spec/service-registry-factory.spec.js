@@ -15,7 +15,11 @@ describe("Service registry", () => {
 	})
 
 	it("should be created from file", () => {
-		expect(paceup.getServices().length).toBe(2);
+		const services = paceup.getServices();
+		expect(services.length).toBe(2);
+		expect(services[0].env).toEqual({
+			"LOG_LEVEL": "DEBUG"
+		});
 	});
 
 	it("should get filtered list of services", () => {
@@ -63,17 +67,12 @@ describe("Service registry", () => {
 			paceup.startedProcesses.forEach(p => {
 				expect(p.exitCode).toBe(null);
 				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.name);
+				expect(p.env.LOG_LEVEL).toBe("DEBUG");				
 			});
-
-			// Note: Either stop test after 1 sec or end when exit promise is resolved
+			
 			setTimeout(() => paceup.startedProcesses.forEach(expectRunningOrTerminatedProcess), 1000);
 
-			// batchStart.whenAllDone()
-			// 	.then(expectRunningOrTerminatedProcess)
-			// 	.catch(done.fail);
-			
 			function expectRunningOrTerminatedProcess(p) {
-				//expect(["running", "terminated"]).toMatch(p.state);
 				expect(p.output.length).toBeGreaterThan(0);
 				expect(onDataCounter).toBeGreaterThan(p.output.length);
 				done();

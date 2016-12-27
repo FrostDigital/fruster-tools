@@ -1,7 +1,7 @@
 {
-  "env": [
-    "LOG_LEVEL=DEBUG"
-  ],
+  "env": { 
+    "LOG_LEVEL": "DEBUG" 
+  },
   "name": "test",
   "services": [
     {
