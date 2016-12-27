@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
 const program = require('commander');
-// const kube = require('../lib/kube');
-// const deis = require('../lib/deis');
 const conf = require('../conf');
 const runner = require("../lib/runner");
 
@@ -31,9 +29,3 @@ if(!serviceRegPath) {
 }
 
 runner.start(serviceRegPath);
-
-// let svcReg = require('../lib/service-registry').create(serviceRegPath);
-
-// svcReg.cloneOrUpdateServices()
-// 	.then(() => svcReg.build())
-// 	.then(() => svcReg.start());
