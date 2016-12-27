@@ -9,7 +9,6 @@ describe("Spawn", () => {
 
 		spawned.exitPromise().then(() => {
 			expect(spawned.output.length).toBeGreaterThan(0);
-			expect(spawned.state).toBe("terminated");
 			expect(spawned.exitCode).toBe(0);
 			expect(spawned.env.foo).toBe("bar");
 			done();			
@@ -22,8 +21,7 @@ describe("Spawn", () => {
 		expect(spawned).toBeDefined();
 
 		spawned.exitPromise().catch(() => {
-			expect(spawned.output.length).toBeGreaterThan(0);
-			expect(spawned.state).toBe('terminated');
+			expect(spawned.output.length).toBeGreaterThan(0);			
 			expect(spawned.exitCode).toBe(1);		
 			done();			
 		})
@@ -34,9 +32,7 @@ describe("Spawn", () => {
 
 		expect(spawned).toBeDefined();
 
-		spawned.exitPromise().then(() => {
-			expect(spawned.output.length).toBeGreaterThan(0);
-			expect(spawned.state).toBe('terminated');
+		spawned.exitPromise().then(() => {	
 			expect(spawned.exitCode).toBe(0);
 			done();			
 		})

@@ -25,7 +25,7 @@ describe("Service registry", () => {
 
 	describe("that is cloned or updated", () => {
 
-		beforeEach(done => {
+		beforeEach(done => {			
 			paceup.cloneOrUpdateServices().then(done).catch(done.fail);
 		});
 
@@ -34,18 +34,17 @@ describe("Service registry", () => {
 		});
 
 		it("should build services", done => {
-			let batchBuild = paceup.build();
+			paceup.build();
 
-			expect(batchBuild.processes.length).toBe(2);
+			expect(paceup.buildProcesses.length).toBe(2);
 
-			batchBuild.processes.forEach(p => {
-				expect(p.state).toBe("running");
-				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.id);
+			paceup.buildProcesses.forEach(p => {
+				expect(p.exitCode).toBe(null);
+				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.name);
 			});
 
-			batchBuild.whenAllDone().then(() => {
-					batchBuild.processes.forEach(p => {
-						expect(p.state).toBe("terminated");
+			paceup.whenAllBuilt().then(() => {
+					paceup.buildProcesses.forEach(p => {
 						expect(p.exitCode).toBe(0);
 					});
 					done();
@@ -55,26 +54,26 @@ describe("Service registry", () => {
 
 		it("should start services (and probably fail to do so)", done => {
 			let onDataCounter = 0;
-			let batchStart = paceup.start((data) => {
+			paceup.start((data) => {
 				onDataCounter++;
 			});
 
-			expect(batchStart.processes.length).toBe(2);
+			expect(paceup.startProcesses.length).toBe(2);
 
-			batchStart.processes.forEach(p => {
-				expect(p.state).toBe("running");
-				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.id);
+			paceup.startProcesses.forEach(p => {
+				expect(p.exitCode).toBe(null);
+				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.name);
 			});
 
 			// Note: Either stop test after 1 sec or end when exit promise is resolved
-			setTimeout(() => batchStart.processes.forEach(expectRunningOrTerminatedProcess), 1000);
+			setTimeout(() => paceup.startProcesses.forEach(expectRunningOrTerminatedProcess), 1000);
 
-			batchStart.whenAllDone()
-				.then(expectRunningOrTerminatedProcess)
-				.catch(done.fail);
+			// batchStart.whenAllDone()
+			// 	.then(expectRunningOrTerminatedProcess)
+			// 	.catch(done.fail);
 			
 			function expectRunningOrTerminatedProcess(p) {
-				expect(["running", "terminated"]).toMatch(p.state);
+				//expect(["running", "terminated"]).toMatch(p.state);
 				expect(p.output.length).toBeGreaterThan(0);
 				expect(onDataCounter).toBeGreaterThan(p.output.length);
 				done();
