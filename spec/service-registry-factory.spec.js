@@ -58,15 +58,15 @@ describe("Service registry", () => {
 				onDataCounter++;
 			});
 
-			expect(paceup.startProcesses.length).toBe(2);
+			expect(paceup.startedProcesses.length).toBe(2);
 
-			paceup.startProcesses.forEach(p => {
+			paceup.startedProcesses.forEach(p => {
 				expect(p.exitCode).toBe(null);
 				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.name);
 			});
 
 			// Note: Either stop test after 1 sec or end when exit promise is resolved
-			setTimeout(() => paceup.startProcesses.forEach(expectRunningOrTerminatedProcess), 1000);
+			setTimeout(() => paceup.startedProcesses.forEach(expectRunningOrTerminatedProcess), 1000);
 
 			// batchStart.whenAllDone()
 			// 	.then(expectRunningOrTerminatedProcess)
