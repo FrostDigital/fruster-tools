@@ -1,6 +1,6 @@
 const path = require("path");
 
-process.env.FRUSTER_DIR = path.join(__dirname, ".tmp-fruster-home");
+process.env.FRUSTER_HOME = path.join(__dirname, ".tmp-fruster-home");
 
 const svcReg = require("../lib/service-registry");
 
