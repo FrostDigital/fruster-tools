@@ -8,5 +8,5 @@ program
   .command("logs <app>", "view logs of deis app").alias("log") 
   .command("config <config...>", "set/unset/get config for app(s)")  
   .command("use <cluster>", "switch kube and deis cluster").alias("switch")
-  .command("add-deis-cluster <cluster>", "configure deis cluster")  
+  .command("add-deis-cluster <cluster>", "add deis cluster")  
   .parse(process.argv);
