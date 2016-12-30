@@ -59,12 +59,9 @@ if(!url) {
 
 function getUsernameAndPassword() {
 	if(questions.length) {
-		console.log('asking');
 		return enquirer.ask(questions).then(answers => {			
 			username = answers.username || username;
 			password = answers.password || password;
-
-			console.log(password);
 			
 			url = answers.url || url;
 			if(!username || !password || !url) {
