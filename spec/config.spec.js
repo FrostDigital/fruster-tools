@@ -1,8 +1,8 @@
-process.env.FRUSTER_DIR = require("path").join(__dirname, "support");
+process.env.FRUSTER_HOME = require("path").join(__dirname, "support");
 
 const config = require("../lib/config");
 
-process.env.DEBUG = true;
+//process.env.DEBUG = true;
 
 describe("Config", () => {
     

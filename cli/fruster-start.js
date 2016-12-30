@@ -25,7 +25,7 @@ const serviceRegPath = program.args[0];
 
 if(!serviceRegPath) {
   console.error("ERROR: Missing name of fruster to start");
-  process.exit(-1);
+  process.exit(1);
 }
 
 runner.start(serviceRegPath);
