@@ -6,7 +6,7 @@ const runner = require("../lib/runner");
 
 program    
   //.option("--exclude", "Wildcard pattern of services to exclude")
-  //.option("--branch", "Branch to run develop|master")
+  .option("--verbose", "Verbose logging of build")
   .description(`
 Start fruster locally. Will start all services defined in service registry.
 
@@ -28,4 +28,4 @@ if(!serviceRegPath) {
   process.exit(1);
 }
 
-runner.start(serviceRegPath);
+runner.start(serviceRegPath, program.verbose);

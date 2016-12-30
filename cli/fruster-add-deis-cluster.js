@@ -80,7 +80,7 @@ function addDeisCluster() {
 			log.info(`Cluster added, switch to it with:\n$ fruster use ${clusterName}`);
 		})
 		.catch(err => {
-			log.error(err);
+			log.error(err.message);
 		});
 }
 
