@@ -4,7 +4,7 @@ const path = require("path");
 const utils = require("../lib/utils");
 const conf = require("../conf");
 
-fdescribe("Cluster", () => {
+describe("Cluster", () => {
   
   const cluster = require("../lib/cluster");
   
