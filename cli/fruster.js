@@ -9,5 +9,5 @@ program
   .command("config <config...>", "set/unset/get config for app(s)")  
   .command("use <cluster>", "switch kube and deis cluster").alias("switch")
   .command("add-deis-cluster <cluster>", "add deis cluster")  
-  .command("port-forward <pod> <portMapping>", "port forward to pod")  
+  .command("port-forward <pod> <portMapping>", "port forward localhost to remote pod")  
   .parse(process.argv);
