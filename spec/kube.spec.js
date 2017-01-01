@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs-extra"); 
 const uuid = require("uuid");
 
-process.env.DEBUG = false;
+//process.env.DEBUG = false;
 
 describe("Kube", () => {
   
@@ -21,6 +21,16 @@ describe("Kube", () => {
 
     kube.logs("does-not-exist")      
       .catch(done);
+  });
+
+  it("should get pods by pod name only", done => {              
+
+    kube.getPods("nats*")
+      .then((pods) => {
+        expect(pods.length).toBeGreaterThan(0);        
+        done();
+      })
+      .catch(done.fail);
   });
 
 });
