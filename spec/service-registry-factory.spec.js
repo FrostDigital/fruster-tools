@@ -10,17 +10,35 @@ describe("Service registry", () => {
 
 	let paceup;
 
-	beforeEach(() => {
-		paceup = svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"));
-	})
-
-	it("should be created from file", () => {
-		const services = paceup.getServices();
-		expect(services.length).toBe(2);
-		expect(services[0].env).toEqual({
-			"LOG_LEVEL": "DEBUG"
-		});
+	beforeEach(done => {
+		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
+		.then(serviceRegistry => {
+			paceup = serviceRegistry;
+			done();
+		})
+		.catch(done.fail);
 	});
+
+	it("should be created from file", done => {
+		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
+		.then(serviceRegistry => {			
+			expect(serviceRegistry).toBeDefined();
+			expect(serviceRegistry.services.length).toBe(2);
+			done();
+		})
+		.catch(done.fail);		
+	});
+
+	it("should be created from git repo", done => {
+		svcReg.create("frostdigital/paceup")
+		.then(serviceRegistry => {			
+			expect(serviceRegistry).toBeDefined();
+			expect(serviceRegistry.services.length).toBeGreaterThan(5);
+			done();
+		})
+		.catch(done.fail);		
+	});
+
 
 	it("should get filtered list of services", () => {
 		expect(paceup.getServices("*api*").length).toBe(1);

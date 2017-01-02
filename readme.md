@@ -24,4 +24,3 @@ A collection of commands that will make life with Deis and Kubernetes easier.
 ## Installation
 
     npm install -g frostdigital/fruster-tools
-
