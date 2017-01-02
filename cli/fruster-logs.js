@@ -32,15 +32,5 @@ deis.apps(appName)
 
 function showLogs(app) {
   return kube.logs(app.id, tail)
-    .then(logOutput => {
-      const header = `==========  ${app.id}  ==========`;
-      const separator = Array(header.length + 1).join("=");
-
-      console.log("\n\n");
-      console.log(separator);
-      console.log(header);
-      console.log(separator);
-      console.log(logOutput);
-    })
     .catch(console.err);
 }
