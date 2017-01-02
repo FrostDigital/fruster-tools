@@ -5,7 +5,7 @@ const kube = require('../lib/kube');
 const deis = require('../lib/deis');
 
 program
-  .option("-t, --tail", "Follow/tail logs")
+  .option("-t, --tail", "Follow/tail logs").alias("-f, --follow")
   .description(`
 Show logs of app(s). Will get logs via kube instead of deis. 
 

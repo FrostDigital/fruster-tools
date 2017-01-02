@@ -22,7 +22,7 @@ const config = program.args;
 
 if(!config.length) {
   console.log("Missing config");
-  process.exit(-1);
+  process.exit(1);
 }
 
 deis.apps(appName)
