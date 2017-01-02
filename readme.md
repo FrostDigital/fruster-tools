@@ -21,6 +21,18 @@ A collection of commands that will make life with Deis and Kubernetes easier.
       -V, --version  output the version number
   
 
+## Prerequisites
+
+You need the following installed:
+
+* Kubectl
+* deis cli
+* git client setup with SSH key access to github
+* [Clusters repo](https://github.com/FrostDigital/clusters) de-crypted in `~/.clusters` (default, but location can be changed with env var `CLUSTERS_HOME`)
+
 ## Installation
 
+Install globally with npm:
+
     npm install -g frostdigital/fruster-tools
+
