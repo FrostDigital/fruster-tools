@@ -11,4 +11,5 @@ program
   .command("add-deis-cluster <cluster>", "add deis cluster")  
   .command("port-forward <pod> <portMapping>", "port forward localhost to remote pod").alias("pf")
   .command("healthcheck", "set, get or unset healtcheck").alias("hc")  
+  .command("clone <app> <clone-name>", "Clone an app and its config")
   .parse(process.argv);
