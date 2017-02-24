@@ -38,5 +38,7 @@ jspm_packages
 
 .tmp-fruster-home
 
+.tmp-docs
+
 spec/support/fruster/test
 spec/support/fruster/service-registries

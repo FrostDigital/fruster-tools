@@ -18,4 +18,8 @@ if(!serviceRegPath) {
   process.exit(1);
 }
 
-docGenerator.generate(serviceRegPath, destinationPath);
+docGenerator.generate(serviceRegPath, destinationPath)
+	.catch(err => {
+		console.log(err);
+		process.exit(1);
+	});

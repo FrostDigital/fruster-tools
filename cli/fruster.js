@@ -12,5 +12,5 @@ program
   .command("port-forward <pod> <portMapping>", "port forward localhost to remote pod").alias("pf")
   .command("healthcheck", "set, get or unset healtcheck").alias("hc")  
   .command("clone <app> <clone-name>", "clone an app and its config")
-  .command("generate-docs <service-registry>", "generate documentation for all service defined in service registry")
+  .command("generate-docs <service-registry> <destination>", "generate documentation for all service defined in service registry")
   .parse(process.argv);
