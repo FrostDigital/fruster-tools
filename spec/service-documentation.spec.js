@@ -35,7 +35,7 @@ describe("Document generator", () => {
 		
 	});
 
-	fit("should build documentation", () => {
+	it("should build documentation", () => {
 
 		paceupServiceDocs.build(testDocDir);
 		
