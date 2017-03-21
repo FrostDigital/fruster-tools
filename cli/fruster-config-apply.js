@@ -4,6 +4,7 @@ const program = require('commander');
 const deis = require('../lib/deis');
 const serviceRegistryFactory = require('../lib/service-registry');
 const log = require("../lib/log");
+const Promise = require("bluebird");
 
 program
   .description(
@@ -20,6 +21,7 @@ $ fruster config apply frostdigital/paceup
   .option("-c, --create-apps", "create app(s) if non existing")
   .option("-d, --dry-run", "just check, no writing")
   .option("-e, --env-override", "pass current env to services")
+  .option("-h, --add-healthcheck", "adds healthchecks too all apps")
   .parse(process.argv);
 
 const serviceRegPath = program.args[0];
@@ -27,34 +29,46 @@ const createApps = program.createApps;
 const dryRun = program.dryRun;
 const prune = program.prune;
 const envOverride = program.envOverride;
+const addHealthcheck = program.addHealthcheck;
 
 if (!serviceRegPath) {
   console.log("Missing service registry path");
   process.exit(1);
 }
 
-// Fetch all services their config in service registry
 serviceRegistryFactory.create(serviceRegPath, { envOverride: envOverride }).then(serviceRegistry => {
-  // Make sure all services has corresponding deis app
-  // and create them if wanted
+  
   return deis.apps()
-    .then(apps => {
-      let createAppsPromises = serviceRegistry.services.map(service => {
-        
+    .then(apps => {      
+      return Promise.mapSeries(serviceRegistry.services, (service) => {
+
+        let promise = Promise.resolve();
+
         if(!apps.find(app => app.id == service.name)) {          
           if(createApps) {
-            console.log(`Creating app ${service.name}...`);            
-            return dryRun ? Promise.resolve() : deis.createApp(service.name); 
+            console.log(`[${service.name}] Creating app ...`);            
+            
+            if(!dryRun) {
+              promise.then(() => deis.createApp(service.name))
+            }            
           } else {
-            console.log(`Service ${service.name} does not exist in deis, skipping config of this service`);
+            log.warn(`Service ${service.name} does not exist in deis, skipping config of this service`);
             service.skip = true;          
           }
         }
-        return Promise.resolve();        
-      });
-      return Promise.all(createAppsPromises);
+        
+        if(addHealthcheck && !service.skip) {
+          console.log(`[${service.name}] Enabling healthcheck`);
+          
+          if(!dryRun) {
+            promise.then(() => deis.enableHealthcheck(service.name));            
+          }          
+        }
+
+        return promise;
+      });            
     })
-    .then(() => {
+    .then(() => {      
       let services = serviceRegistry.services.filter(service => !service.skip);
 
       let changeSetPromises = services.map(service => {          
@@ -97,26 +111,18 @@ serviceRegistryFactory.create(serviceRegPath, { envOverride: envOverride }).then
         });
       });
 
-      return Promise.all(changeSetPromises).then(changeSets => {
-        // Note: Perform config in a sequence to not overload deis controller
-        // http://stackoverflow.com/a/24586168/83592
-        let p = Promise.resolve();
-
-        changeSets.forEach(changeSet => {          
-          p = p.then(() => {                         
-            if(!dryRun && changeSet.changeSet) {
-              console.log(`[${changeSet.serviceName}] Updating config...`);
-              return deis.setConfig(changeSet.serviceName, changeSet.changeSet)
-                .then(() => {
-                  log.success(`[${changeSet.serviceName}] Done updating`);
-                })
-                .catch((err) => {
-                  log.error(`[${changeSet.serviceName}] got error while updating config`);                  
-                  console.log(err);
-                });
-            }
-          });
-        });
+      return Promise.all(changeSetPromises).mapSeries(changeSet => {       
+        if(!dryRun && changeSet.changeSet) {
+          console.log(`[${changeSet.serviceName}] Updating config...`);
+          return deis.setConfig(changeSet.serviceName, changeSet.changeSet)
+            .then(() => {
+              log.success(`[${changeSet.serviceName}] Done updating`);
+            })
+            .catch((err) => {
+              log.error(`[${changeSet.serviceName}] got error while updating config`);                  
+              console.log(err);
+            });
+        }        
       });      
     });
 
