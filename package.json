@@ -10,6 +10,7 @@
   "dependencies": {
     "commander": "git+https://github.com/tj/commander.js.git",
     "enquirer": "^0.4.1",
+    "es6-template-strings": "^2.0.1",
     "fs-extra": "^1.0.0",
     "handlebars": "^4.0.6",
     "marked": "^0.3.6",
