@@ -1,6 +1,6 @@
 {
   "env": { 
-    "LOG_LEVEL": "DEBUG" 
+    "LOG_LEVEL": "DEBUG"
   },
   "name": "test",
   "services": [
@@ -9,7 +9,10 @@
       "repo": "http://github.com/frostdigital/fruster-api-gateway",      
       "build": "npm install",
       "start": "npm start",
-      "test": "npm test"
+      "test": "npm test",
+      "env": {
+        "FOO": "${AN_ENV_VAR}3"
+      }
     },
     {
       "name": "fruster-auth-service",

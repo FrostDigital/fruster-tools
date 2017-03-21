@@ -11,6 +11,8 @@ describe("Service registry", () => {
 	let paceup;
 
 	beforeEach(done => {
+		process.env.AN_ENV_VAR = "12";
+
 		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
 		.then(serviceRegistry => {
 			paceup = serviceRegistry;
@@ -19,11 +21,18 @@ describe("Service registry", () => {
 		.catch(done.fail);
 	});
 
+	afterEach(() => {
+		delete process.env.AN_ENV_VAR;
+	});
+
 	it("should be created from file", done => {
+
 		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
 		.then(serviceRegistry => {			
 			expect(serviceRegistry).toBeDefined();
 			expect(serviceRegistry.services.length).toBe(2);
+			expect(serviceRegistry.services[0].env.LOG_LEVEL).toBe("DEBUG");
+			expect(serviceRegistry.services[0].env.FOO).toBe("123");
 			done();
 		})
 		.catch(done.fail);		
