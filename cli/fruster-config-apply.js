@@ -19,12 +19,14 @@ $ fruster config apply frostdigital/paceup
   .option("-p, --prune", "remove config from apps that is not defined in service registry")
   .option("-c, --create-apps", "create app(s) if non existing")
   .option("-d, --dry-run", "just check, no writing")
+  .option("-e, --env-override", "pass current env to services")
   .parse(process.argv);
 
 const serviceRegPath = program.args[0];
 const createApps = program.createApps;
 const dryRun = program.dryRun;
 const prune = program.prune;
+const envOverride = program.envOverride;
 
 if (!serviceRegPath) {
   console.log("Missing service registry path");
@@ -32,7 +34,7 @@ if (!serviceRegPath) {
 }
 
 // Fetch all services their config in service registry
-serviceRegistryFactory.create(serviceRegPath).then(serviceRegistry => {
+serviceRegistryFactory.create(serviceRegPath, { envOverride: envOverride }).then(serviceRegistry => {
   // Make sure all services has corresponding deis app
   // and create them if wanted
   return deis.apps()
@@ -64,10 +66,10 @@ serviceRegistryFactory.create(serviceRegPath).then(serviceRegistry => {
           for(let k in existingConfig) {
             if(service.env[k] === undefined) {                
               if(prune) {
-                log.warn(`[${service.name}] Removing config ${k} from deis app (value was "${existingConfig[k]}")`);
+                log.warn(`[${service.name}] Will remove ${k} (value was "${existingConfig[k]}")`);
                 changeSet[k] = null;
               } else {
-                log.warn(`[${service.name}] App has config ${k} which is missing in service registry, user --prune to remove this, current value is "${existingConfig[k]}"`);
+                log.warn(`[${service.name}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig[k]}"`);
               }                
             }
             else if(existingConfig[k] != service.env[k]) {
@@ -102,9 +104,7 @@ serviceRegistryFactory.create(serviceRegPath).then(serviceRegistry => {
 
         changeSets.forEach(changeSet => {          
           p = p.then(() => {                         
-            if(dryRun) {
-              log.info(`[${changeSet.serviceName}] dry-run changeset ${JSON.stringify(changeSet.changeSet, null, 2)}`);                             
-            } else if(changeSet.changeSet) {
+            if(!dryRun && changeSet.changeSet) {
               console.log(`[${changeSet.serviceName}] Updating config...`);
               return deis.setConfig(changeSet.serviceName, changeSet.changeSet)
                 .then(() => {
