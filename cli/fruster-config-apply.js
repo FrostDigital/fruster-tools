@@ -20,7 +20,8 @@ $ fruster config apply frostdigital/paceup
   .option("-p, --prune", "remove config from apps that is not defined in service registry")
   .option("-c, --create-apps", "create app(s) if non existing")
   .option("-d, --dry-run", "just check, no writing")
-  .option("-e, --env-override", "pass current env to services")
+  .option("-p, --pass-host-env", "pass current env to services")
+  .option("-e, --environment <environment>", "prod|int|stg etc")
   .option("-h, --add-healthcheck", "adds healthchecks too all apps")
   .parse(process.argv);
 
@@ -28,7 +29,8 @@ const serviceRegPath = program.args[0];
 const createApps = program.createApps;
 const dryRun = program.dryRun;
 const prune = program.prune;
-const envOverride = program.envOverride;
+const passEnv = program.passHostEnv;
+const environment = program.environment;
 const addHealthcheck = program.addHealthcheck;
 
 if (!serviceRegPath) {
@@ -36,7 +38,7 @@ if (!serviceRegPath) {
   process.exit(1);
 }
 
-serviceRegistryFactory.create(serviceRegPath, { envOverride: envOverride }).then(serviceRegistry => {
+serviceRegistryFactory.create(serviceRegPath, { passHostEnv: passEnv, environment: environment }).then(serviceRegistry => {
   
   return deis.apps()
     .then(apps => {      
@@ -49,7 +51,7 @@ serviceRegistryFactory.create(serviceRegPath, { envOverride: envOverride }).then
             console.log(`[${service.name}] Creating app ...`);            
             
             if(!dryRun) {
-              promise.then(() => deis.createApp(service.name))
+              promise.then(() => deis.createApp(service.name));
             }            
           } else {
             log.warn(`Service ${service.name} does not exist in deis, skipping config of this service`);
