@@ -5,6 +5,7 @@ const runner = require("../lib/runner");
 
 program    
   .option("-e, --environment <environment>", "prod|int|stg etc")
+  .option("--exclude <exclude>", "name of service that will not be started")
   .option("--verbose", "Verbose logging of build")
   .description(`
 Start fruster locally. Will start all services defined in service registry that is either a
@@ -30,6 +31,7 @@ $ fruster start ~/agada/services.json
 const serviceRegPath = program.args[0];
 const environment = program.environment;
 const verbose = program.verbose;
+const exclude = program.exclude;
 
 if(!serviceRegPath) {
   console.error("ERROR: Missing name of fruster to start");
@@ -38,5 +40,6 @@ if(!serviceRegPath) {
 
 runner.start(serviceRegPath, { 
 	environment: environment,
-	verbose: verbose
+	verbose: verbose,
+	exclude: exclude
 });
