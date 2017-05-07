@@ -53,6 +53,27 @@ describe("Service registry", () => {
 		expect(paceup.getServices("*api*").length).toBe(1);
 	});
 
+	describe("with inheritance", () => {
+		
+		let serviceRegistry;
+
+		beforeEach((done) => {
+			svcReg.create(path.join(__dirname, "support", "service-registry-inheritance", "extends.json"))
+			.then(_serviceRegistry => {			
+				serviceRegistry = _serviceRegistry;				
+				done();
+			})
+			.catch(done.fail);			
+		});
+
+		it("should inherit from extended service registry", () => {
+			expect(serviceRegistry.services.length).toBe(2);
+			expect(serviceRegistry.services[0].env.HELLO_FROM_SUPER).toBe("true");			
+			expect(serviceRegistry.services[0].env.FOO).toBe("BAR");
+			expect(serviceRegistry.services[1].env.HELLO_FROM_SUPER).toBe("true");
+			expect(serviceRegistry.name).toBe("test");
+		});
+	});
 
 	describe("that is cloned or updated", () => {
 
