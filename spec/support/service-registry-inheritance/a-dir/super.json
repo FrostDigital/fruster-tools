@@ -1,0 +1,6 @@
+{
+  "name": "test",
+  "env": { 
+    "HELLO_FROM_SUPER": "true"
+  }
+}
