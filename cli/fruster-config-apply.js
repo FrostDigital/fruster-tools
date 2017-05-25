@@ -23,6 +23,7 @@ $ fruster config apply frostdigital/paceup
   .option("-p, --pass-host-env", "pass current env to services")
   .option("-e, --environment <environment>", "prod|int|stg etc")
   .option("-h, --add-healthcheck", "adds healthchecks too all apps")
+  .option("-p, --print", "print config to stdout")
   .parse(process.argv);
 
 const serviceRegPath = program.args[0];
@@ -72,6 +73,16 @@ serviceRegistryFactory.create(serviceRegPath, { passHostEnv: passEnv, environmen
     })
     .then(() => {      
       let services = serviceRegistry.services.filter(service => !service.skip);
+
+      if(program.print) {
+        services.forEach(service => {
+          console.log(service.name);
+          for(let k in service.env) {
+            console.log(k, "=", service.env[k]);            
+          }
+          console.log();
+        });              
+      }
 
       let changeSetPromises = services.map(service => {          
         
