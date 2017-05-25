@@ -77,9 +77,11 @@ serviceRegistryFactory.create(serviceRegPath, { passHostEnv: passEnv, environmen
       if(program.print) {
         services.forEach(service => {
           console.log(service.name);
-          for(let k in service.env) {
-            console.log(k, "=", service.env[k]);            
-          }
+          
+          Object.keys(service.env).sort().forEach(k => {
+            console.log(k, "=", service.env[k]);                        
+          });          
+
           console.log();
         });              
       }
