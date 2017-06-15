@@ -51,6 +51,11 @@ serviceRegistryFactory.create(serviceRegPath, { environment: environment }).then
       });            
     });
 })
+.then((res) => {
+  if(!dryRun) {    
+    log.success(`\n✔ ${res.length} app(s) created`);
+  }
+})
 .catch(err => {
   console.log(err);
   process.exit(1);
