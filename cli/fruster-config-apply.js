@@ -134,8 +134,7 @@ serviceRegistryFactory.create(serviceRegPath, { passHostEnv: passEnv, environmen
               log.success(`[${changeSet.serviceName}] Done updating`);
             })
             .catch((err) => {
-              log.error(`[${changeSet.serviceName}] got error while updating config`);                  
-              console.log(err);
+              log.error(`[${changeSet.serviceName}] got error while updating config:\n${err.message}`);
             });
         }        
       });      
