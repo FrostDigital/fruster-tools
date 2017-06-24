@@ -3,6 +3,7 @@
 const program = require('commander');
 const deis = require('../lib/deis');
 const log = require('../lib/log');
+const Promise = require("bluebird");
 
 program    
   .description(
@@ -26,10 +27,16 @@ if(!appName) {
 deis.apps(appName)
   .then(apps => {
     log.info(`Enabling healthcheck on ${apps.length} app(s) - this may take a while...`);
-    return Promise.all(apps.map(app => deis.enableHealthcheck(app.id)));    
+    return Promise.mapSeries(apps, (app) => {
+      log.info(`[${app.id}] enabling healtcheck...`);
+      return deis.enableHealthcheck(app.id)
+        .catch(err => {
+          log.error(`[${app.id}] failed setting healtcheck: ${err}`);
+        });
+    });
   })
   .then(outputs => {
-    console.log(outputs.join("\n"));
+    //console.log(outputs.join("\n"));
     console.log(`
     Done - health check has been updated.
     You can view health check(s) with command:
