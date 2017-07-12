@@ -1,6 +1,6 @@
 {
   "name": "fruster-tools",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "scripts": {
     "test": "node ./spec/support/jasmine-runner.js"
   },
