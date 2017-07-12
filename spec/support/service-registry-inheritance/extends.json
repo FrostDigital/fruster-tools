@@ -1,13 +1,16 @@
 { 
   "extends": "./base.json",
   "env": { 
-    "LOG_LEVEL": "INFO"
+    "LOG_LEVEL": "INFO",
+    "I_LOVE": "candy"
   },
   "services": [
     {
       "name": "fruster-api-gateway",
       "env": {
-        "FOO": "BAR"
+        "FOO": "BAR",
+        "I_LOVE": "lots of candy",
+        "NULL": null
       }
     }
   ]

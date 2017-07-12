@@ -28,7 +28,7 @@ describe("Service registry", () => {
 	it("should be created from file", done => {
 
 		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
-		.then(serviceRegistry => {			
+		.then(serviceRegistry => {	
 			expect(serviceRegistry).toBeDefined();
 			expect(serviceRegistry.services.length).toBe(2);
 			expect(serviceRegistry.services[0].env.LOG_LEVEL).toBe("DEBUG");
@@ -72,6 +72,10 @@ describe("Service registry", () => {
 			expect(serviceRegistry.services[0].env.FOO).toBe("BAR");
 			expect(serviceRegistry.services[1].env.HELLO_FROM_SUPER).toBe("true");
 			expect(serviceRegistry.name).toBe("test");
+
+			let apiGateway = serviceRegistry.services.find(s => s.name === "fruster-api-gateway");
+			expect(apiGateway.env.I_LOVE).toBe("lots of candy");
+			expect(apiGateway.env.NULL).toBeUndefined();
 		});
 	});
 
