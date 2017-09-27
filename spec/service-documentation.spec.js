@@ -6,8 +6,7 @@ process.env.FRUSTER_HOME = path.join(__dirname, ".tmp-fruster-home");
 const svcReg = require("../lib/service-registry");
 const ServiceDocumentation = require("../lib/doc-generator/service-documentation");
 
-
-describe("Document generator", () => {
+xdescribe("Document generator", () => {
 	
 	let paceupServiceReg;
 	let paceupServiceDocs;

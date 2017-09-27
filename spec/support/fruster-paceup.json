@@ -11,7 +11,7 @@
       "start": "npm start",
       "test": "npm test",
       "env": {
-        "FOO": "${AN_ENV_VAR}3"
+        "FOO": "${AN_ENV_VAR}"
       }
     },
     {

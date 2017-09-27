@@ -37,3 +37,6 @@ Install globally with npm:
 
     npm install -g frostdigital/fruster-tools
 
+## Roadmap
+
+* [TECH] Run tests in docker container where git, kube and deis is setup

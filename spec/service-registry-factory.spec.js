@@ -6,7 +6,7 @@ const svcReg = require("../lib/service-registry");
 
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 30 * 1000;
 
-describe("Service registry", () => {
+xdescribe("Service registry", () => {
 
 	let paceup;
 
