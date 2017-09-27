@@ -3,7 +3,11 @@ const path = require("path");
 const fs = require("fs-extra"); 
 const uuid = require("uuid");
 
-//process.env.DEBUG = false;
+process.env.DEBUG = true;
+
+if(!process.env.KUBE_INTEGRATION_TEST) {
+  return;
+}
 
 describe("Kube", () => {
   
