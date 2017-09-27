@@ -30,7 +30,7 @@ describe("Spawn", () => {
 
 		spawned.exitPromise().catch(() => {
 			expect(spawned.output.length).toBeGreaterThan(0);			
-			expect(spawned.exitCode).toBe(1);		
+			expect(spawned.exitCode).toBeGreaterThan(0);		
 			done();			
 		})
 	});
