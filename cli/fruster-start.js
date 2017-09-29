@@ -5,7 +5,9 @@ const runner = require("../lib/runner");
 
 program    
   .option("-e, --environment <environment>", "prod|int|stg etc")
-  .option("--exclude <exclude>", "name of service that will not be started")
+  .option("--exclude <exclude>", "name of service that will not be started, separate with comma if multiple")
+  .option("--skip-update", "if update (clone/fetch) should be skipped")
+  .option("--skip-build", "if build step of services should be skipped")
   .option("--verbose", "Verbose logging of build")
   .description(`
 Start fruster locally. Will start all services defined in service registry that is either a
@@ -21,7 +23,6 @@ $ fruster start frostdigital/agada
 # Start fruster with services defined in github repo in branch develop 
 $ fruster start frostdigital/agada#develop
 
-
 # Start fruster with services defined in local file 
 $ fruster start ~/agada/services.json
 `
@@ -29,9 +30,6 @@ $ fruster start ~/agada/services.json
   .parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const environment = program.environment;
-const verbose = program.verbose;
-const exclude = program.exclude;
 
 if(!serviceRegPath) {
   console.error("ERROR: Missing name of fruster to start");
@@ -39,7 +37,9 @@ if(!serviceRegPath) {
 }
 
 runner.start(serviceRegPath, { 
-	environment: environment,
-	verbose: verbose,
-	exclude: exclude
+	environment: program.environment,
+	verbose: program.verbose,
+	exclude: program.exclude,
+  skipUpdate: program.skipUpdate,
+  skipBuild: program.skipBuild
 });
