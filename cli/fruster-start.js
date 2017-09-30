@@ -8,6 +8,7 @@ program
   .option("--exclude <exclude>", "name of service that will not be started, separate with comma if multiple")
   .option("--skip-update", "if update (clone/fetch) should be skipped")
   .option("--skip-build", "if build step of services should be skipped")
+  .option("--dir <dir>", "directory where services are located, will default to ${FRUSTER_HOME}/${SERVICE REGISTRY NAME}")
   .option("--verbose", "Verbose logging of build")
   .description(`
 Start fruster locally. Will start all services defined in service registry that is either a
@@ -41,5 +42,6 @@ runner.start(serviceRegPath, {
 	verbose: program.verbose,
 	exclude: program.exclude,
   skipUpdate: program.skipUpdate,
-  skipBuild: program.skipBuild
+  skipBuild: program.skipBuild,
+  workDir: program.dir
 });
