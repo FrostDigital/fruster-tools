@@ -34,9 +34,10 @@ if(!serviceRegPath) {
 
 runner.start(serviceRegPath, { 
 	environment: program.environment,
-	verbose: program.verbose,
+	verboseOutput: program.verbose,
 	exclude: program.exclude,
 	skipUpdate: true,
 	skipStart: true,
-	workDir: program.dir 
+	workDir: program.dir,
+  allowBuildFailures: true
 });

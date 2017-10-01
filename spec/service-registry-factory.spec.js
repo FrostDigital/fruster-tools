@@ -77,6 +77,16 @@ xdescribe("Service registry", () => {
 			expect(apiGateway.env.I_LOVE).toBe("lots of candy");
 			expect(apiGateway.env.NULL).toBeUndefined();
 		});
+
+		it("should get a flat representation when invoking toJSON()", () => {
+			const json = serviceRegistry.toJSON();
+
+			expect(json.services.length).toBe(2);
+			expect(json.services[0].env.HELLO_FROM_SUPER).toBe("true");			
+			expect(json.services[0].env.FOO).toBe("BAR");
+			expect(json.services[1].env.HELLO_FROM_SUPER).toBe("true");
+			expect(json.name).toBe("test");			
+		});
 	});
 
 	describe("that is cloned or updated", () => {
