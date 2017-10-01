@@ -39,5 +39,5 @@ runner.start(serviceRegPath, {
 	skipUpdate: true,
 	skipStart: true,
 	workDir: program.dir,
-  allowBuildFailures: true
+  allowBuildFailures: false
 });
