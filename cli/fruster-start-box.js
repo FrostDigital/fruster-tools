@@ -56,7 +56,7 @@ async function startBox(serviceRegPath, dockerImage) {
     Cmd: [
       "/bin/bash", 
       "-c", 
-      `(/root/start.sh &) && fruster run /service-registry/services.json --dir /services --skip-build --skip-update`
+      `(/root/start.sh &) && fruster run /service-registry/services.json --dir /services --skip-build --skip-update --exclude ${program.exclude}`
     ],
     HostConfig: {
       PortBindings: {

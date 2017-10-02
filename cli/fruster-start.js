@@ -9,6 +9,7 @@ program
   .option("--skip-update", "if update (clone/fetch) should be skipped")
   .option("--skip-build", "if build step of services should be skipped")
   .option("--dir <dir>", "directory where services are located, will default to ${FRUSTER_HOME}/${SERVICE REGISTRY NAME}")
+  .option("--branch <branch>", "git branch of services to start")
   .option("--verbose", "Verbose logging of build")
   .description(`
 Start fruster locally. Will start all services defined in service registry that is either a
@@ -26,6 +27,9 @@ $ fruster start frostdigital/agada#develop
 
 # Start fruster with services defined in local file 
 $ fruster start ~/agada/services.json
+
+# Start fruster running master branch of all services 
+$ fruster start ~/agada/services.json --branch master
 `
   )
   .parse(process.argv);
@@ -44,5 +48,6 @@ runner.start(serviceRegPath, {
   skipUpdate: program.skipUpdate,
   skipBuild: program.skipBuild,
   workDir: program.dir,
-  allowBuildFailures: true
+  allowBuildFailures: true,
+  branch: program.branch
 });

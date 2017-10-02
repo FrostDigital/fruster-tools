@@ -8,6 +8,7 @@ program
   .option("--exclude <exclude>", "name of service that will not be started, separate with comma if multiple")
   .option("--dir <dir>", "directory where services are located, will default to ${FRUSTER_HOME}/${SERVICE REGISTRY NAME}")
   .option("--verbose", "Verbose logging of build")
+  .option("--branch <branch>", "git branch of services to start")
   .description(`
 Fetch services defined in service registry. Will perform git clone or pull latest changes. 
 
@@ -38,5 +39,6 @@ runner.start(serviceRegPath, {
 	exclude: program.exclude,
 	skipStart: true,
 	skipBuild: true,
-	workDir: program.dir 
+	workDir: program.dir,
+  branch: program.branch
 });
