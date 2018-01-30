@@ -18,8 +18,8 @@
     "handlebars": "^4.0.6",
     "marked": "^0.3.6",
     "prompt-password": "^0.1.1",
-    "request": "^2.79.0",
-    "request-promise": "^4.1.1",
+    "request": "2.79.0",
+    "request-promise": "4.1.1",
     "terminal-kit": "^0.26.0",
     "uuid": "^2.0.3"
   },
