@@ -1,1 +1,7 @@
-{"username":"joel","ssl_verify":true,"controller":"http://deis.test-cluster-1.fruster.se","token":"409c70c6456492f1da76e7dd61d64822ef3e1111","response_limit":0}
+{
+    "username": "joel",
+    "ssl_verify": true,
+    "controller": "http://deis.test-cluster-1.fruster.se",
+    "token": "409c70c6456492f1da76e7dd61d64822ef3e1111",
+    "response_limit": 0
+}
