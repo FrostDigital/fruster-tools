@@ -1,17 +1,28 @@
-{ 
-  "extends": "./base.json",
-  "env": { 
-    "LOG_LEVEL": "INFO",
-    "I_LOVE": "candy"
-  },
-  "services": [
-    {
-      "name": "fruster-api-gateway",
-      "env": {
-        "FOO": "BAR",
-        "I_LOVE": "lots of candy",
-        "NULL": null
-      }
-    }
-  ]
+{
+	"extends": "./base.json",
+	"env": {
+		"LOG_LEVEL": "INFO",
+		"GLOBAL_ENV_VAR": "global env var"
+	},
+	"args": {
+		"INTERPOLATE_ME": "INTERPOLATED"
+	},
+	"services": [
+		{
+			"name": "fruster-api-gateway",
+			"env": {
+				"FOO": "BAR",
+				"GLOBAL_ENV_VAR": "overridden global env var",
+				"NULL": null
+			}
+		},
+		{
+			"name": "fruster-auth-service-2",
+			"extends": "fruster-auth-service",
+			"env": {
+				"BAZ": "BAZ",
+				"INTERPOLATED_VALUE": "${INTERPOLATE_ME}!"
+			}
+		}
+	]
 }
