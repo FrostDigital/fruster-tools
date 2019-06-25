@@ -48,7 +48,7 @@ describe("Service registry", () => {
 		});
 
 		it("should inherit from extended service registry", () => {
-			expect(serviceRegistry.services.length).toBe(3);
+			expect(serviceRegistry.services.length).toBe(2);
 			expect(serviceRegistry.services[0].env.HELLO_FROM_SUPER).toBe("true");
 			expect(serviceRegistry.services[0].env.FOO).toBe("BAR");
 			expect(serviceRegistry.services[1].env.HELLO_FROM_SUPER).toBe("true");
@@ -62,33 +62,20 @@ describe("Service registry", () => {
 		it("should get a flat representation when invoking toJSON()", () => {
 			const json = serviceRegistry.toJSON();
 
-			expect(json.services.length).toBe(3);
+			expect(json.services.length).toBe(2);
 			expect(json.services[0].env.HELLO_FROM_SUPER).toBe("true");
 			expect(json.services[0].env.FOO).toBe("BAR");
 			expect(json.services[1].env.HELLO_FROM_SUPER).toBe("true");
 			expect(json.name).toBe("test");
-		});
 
-		it("should extend service by name", () => {
-			const json = serviceRegistry.toJSON();
-			const serviceNames = json.services.map(s => s.name);
-
-			expect(json.services.length).toBe(3);
-			expect(serviceNames).toContain("fruster-api-gateway");
-			expect(serviceNames).toContain("fruster-auth-service");
-			expect(serviceNames).toContain("fruster-auth-service-2");
-
-			const frusterAuthService2 = json.services.find(service => service.name === "fruster-auth-service-2");
-
-			expect(frusterAuthService2.env.BAZ).toBe("BAZ");
-			expect(frusterAuthService2.env.GLOBAL_ENV_VAR).toBe("global env var");
-			expect(frusterAuthService2.repo).toBe("http://github.com/frostdigital/fruster-auth-service");
+			const frusterAuthService = json.services.find(service => service.name === "fruster-auth-service");
+			expect(frusterAuthService.appName).toBe("preprod-fruster-auth-service");
 		});
 
 		it("should interpolate env", () => {
 			const json = serviceRegistry.toJSON();
-			const frusterAuthService2 = json.services.find(service => service.name === "fruster-auth-service-2");
-			expect(frusterAuthService2.env.INTERPOLATED_VALUE).toBe("INTERPOLATED!");
+			const frusterAuthService = json.services.find(service => service.name === "fruster-auth-service");
+			expect(frusterAuthService.env.INTERPOLATED_VALUE).toBe("INTERPOLATED!");
 		});
 	});
 });
