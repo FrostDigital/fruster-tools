@@ -20,7 +20,7 @@ $ fruster config apply frostdigital/paceup
 	.option("-f, --force", "override config if conflicts")
 	.option("-p, --prune", "remove config from apps that is not defined in service registry")
 	.option("-c, --create-apps", "create app(s) if non existing")
-	.option("-d, --dry-run", "just check, no writing")
+	.option("-y, --yes", "perform the change, otherwise just dry run")
 	.option("-p, --pass-host-env", "pass current env to services")
 	.option("-e, --environment <environment>", "prod|int|stg etc")
 	.option("-h, --add-healthcheck", "adds healthchecks too all apps")
@@ -29,7 +29,7 @@ $ fruster config apply frostdigital/paceup
 
 const serviceRegPath = program.args[0];
 const createApps = program.createApps;
-const dryRun = program.dryRun;
+const dryRun = !program.yes;
 const prune = program.prune;
 const passEnv = program.passHostEnv;
 const environment = program.environment;
@@ -154,6 +154,11 @@ serviceRegistryFactory
 							});
 					}
 				});
+			})
+			.then(() => {
+				if (dryRun) {
+					console.log("This is a dry run, confirm by adding flag -y or --yes");
+				}
 			});
 	})
 	.catch(err => {
