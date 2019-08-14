@@ -6,75 +6,56 @@ const svcReg = require("../lib/service-registry");
 
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 30 * 1000;
 
-xdescribe("Service registry", () => {
-
+describe("Service registry", () => {
 	let paceup;
 
 	beforeEach(done => {
 		process.env.AN_ENV_VAR = "12";
 
-		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
-		.then(serviceRegistry => {
-			paceup = serviceRegistry;
-			done();
-		})
-		.catch(done.fail);
+		svcReg
+			.create(path.join(__dirname, "support", "fruster-paceup.json"))
+			.then(serviceRegistry => {
+				paceup = serviceRegistry;
+				done();
+			})
+			.catch(done.fail);
 	});
 
 	afterEach(() => {
 		delete process.env.AN_ENV_VAR;
 	});
 
-	it("should be created from file", done => {
+	it("should be created from file", async () => {
+		const serviceRegistry = await svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"));
 
-		svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"))
-		.then(serviceRegistry => {	
-			expect(serviceRegistry).toBeDefined();
-			expect(serviceRegistry.services.length).toBe(2);
-			expect(serviceRegistry.services[0].env.LOG_LEVEL).toBe("DEBUG");
-			expect(serviceRegistry.services[0].env.FOO).toBe("123");
-			done();
-		})
-		.catch(done.fail);		
+		expect(serviceRegistry).toBeDefined();
+		expect(serviceRegistry.services.length).toBe(2);
+		expect(serviceRegistry.services[0].env.LOG_LEVEL).toBe("DEBUG");
+		expect(serviceRegistry.services[0].env.FOO).toBe("12");
 	});
-
-	it("should be created from git repo", done => {
-		svcReg.create("frostdigital/paceup")
-		.then(serviceRegistry => {			
-			expect(serviceRegistry).toBeDefined();
-			expect(serviceRegistry.services.length).toBeGreaterThan(5);
-			done();
-		})
-		.catch(done.fail);		
-	});
-
 
 	it("should get filtered list of services", () => {
 		expect(paceup.getServices("*api*").length).toBe(1);
 	});
 
 	describe("with inheritance", () => {
-		
 		let serviceRegistry;
 
-		beforeEach((done) => {
-			svcReg.create(path.join(__dirname, "support", "service-registry-inheritance", "extends.json"))
-			.then(_serviceRegistry => {			
-				serviceRegistry = _serviceRegistry;				
-				done();
-			})
-			.catch(done.fail);			
+		beforeEach(async () => {
+			serviceRegistry = await svcReg.create(
+				path.join(__dirname, "support", "service-registry-inheritance", "extends.json")
+			);
 		});
 
 		it("should inherit from extended service registry", () => {
 			expect(serviceRegistry.services.length).toBe(2);
-			expect(serviceRegistry.services[0].env.HELLO_FROM_SUPER).toBe("true");			
+			expect(serviceRegistry.services[0].env.HELLO_FROM_SUPER).toBe("true");
 			expect(serviceRegistry.services[0].env.FOO).toBe("BAR");
 			expect(serviceRegistry.services[1].env.HELLO_FROM_SUPER).toBe("true");
 			expect(serviceRegistry.name).toBe("test");
 
 			let apiGateway = serviceRegistry.services.find(s => s.name === "fruster-api-gateway");
-			expect(apiGateway.env.I_LOVE).toBe("lots of candy");
+			expect(apiGateway.env.GLOBAL_ENV_VAR).toBe("overridden global env var");
 			expect(apiGateway.env.NULL).toBeUndefined();
 		});
 
@@ -82,65 +63,19 @@ xdescribe("Service registry", () => {
 			const json = serviceRegistry.toJSON();
 
 			expect(json.services.length).toBe(2);
-			expect(json.services[0].env.HELLO_FROM_SUPER).toBe("true");			
+			expect(json.services[0].env.HELLO_FROM_SUPER).toBe("true");
 			expect(json.services[0].env.FOO).toBe("BAR");
 			expect(json.services[1].env.HELLO_FROM_SUPER).toBe("true");
-			expect(json.name).toBe("test");			
+			expect(json.name).toBe("test");
+
+			const frusterAuthService = json.services.find(service => service.name === "fruster-auth-service");
+			expect(frusterAuthService.appName).toBe("preprod-fruster-auth-service");
+		});
+
+		it("should interpolate env", () => {
+			const json = serviceRegistry.toJSON();
+			const frusterAuthService = json.services.find(service => service.name === "fruster-auth-service");
+			expect(frusterAuthService.env.INTERPOLATED_VALUE).toBe("INTERPOLATED!");
 		});
 	});
-
-	describe("that is cloned or updated", () => {
-
-		beforeEach(done => {			
-			paceup.cloneOrUpdateServices().then(done).catch(done.fail);
-		});
-
-		afterEach(() => {
-			paceup.killAll();
-		});
-
-		it("should build services", done => {
-			paceup.build();
-
-			expect(paceup.buildProcesses.length).toBe(2);
-
-			paceup.buildProcesses.forEach(p => {
-				expect(p.exitCode).toBe(null);
-				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.name);
-			});
-
-			paceup.whenAllBuilt().then(() => {
-					paceup.buildProcesses.forEach(p => {
-						expect(p.exitCode).toBe(0);
-					});
-					done();
-				})
-				.catch(done.fail);
-		});
-
-		it("should start services (and probably fail to do so)", done => {
-			let onDataCounter = 0;
-			paceup.start((data) => {
-				onDataCounter++;
-			});
-
-			expect(paceup.startedProcesses.length).toBe(2);
-
-			paceup.startedProcesses.forEach(p => {
-				expect(p.exitCode).toBe(null);
-				expect(["fruster-api-gateway", "fruster-auth-service"]).toContain(p.name);
-				expect(p.env.LOG_LEVEL).toBe("DEBUG");				
-			});
-			
-			setTimeout(() => paceup.startedProcesses.forEach(expectRunningOrTerminatedProcess), 1000);
-
-			function expectRunningOrTerminatedProcess(p) {
-				expect(p.output.length).toBeGreaterThan(0);
-				expect(onDataCounter).toBeGreaterThan(p.output.length);
-				done();
-			}
-		});
-
-	});
-
 });

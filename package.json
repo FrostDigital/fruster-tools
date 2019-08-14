@@ -1,33 +1,33 @@
 {
-  "name": "fruster-tools",
-  "version": "0.0.24",
-  "scripts": {
-    "test": "node ./spec/support/jasmine-runner.js"
-  },
-  "bin": {
-    "fruster": "./cli/fruster.js"
-  },
-  "dependencies": {
-    "bluebird": "^3.5.1",
-    "commander": "git+https://github.com/tj/commander.js.git",
-    "deepmerge": "^2.1.0",
-    "dockerode": "^2.5.5",
-    "enquirer": "^1.0.3",
-    "es6-template-strings": "^2.0.1",
-    "fs-extra": "^6.0.1",
-    "handlebars": "^4.0.11",
-    "marked": "^0.4.0",
-    "prompt-password": "^1.2.0",
-    "request": "2.87.0",
-    "request-promise": "4.2.2",
-    "terminal-kit": "^1.17.5",
-    "uuid": "^3.2.1"
-  },
-  "devDependencies": {
-    "jasmine": "^3.1.0",
-    "jasmine-spec-reporter": "^4.2.1"
-  },
-  "engines": {
-    "node": "6.4.0"
-  }
+	"name": "fruster-tools",
+	"version": "0.0.24",
+	"scripts": {
+		"test": "node ./spec/support/jasmine-runner.js"
+	},
+	"bin": {
+		"fruster": "./cli/fruster.js"
+	},
+	"dependencies": {
+		"bluebird": "^3.5.1",
+		"commander": "git+https://github.com/tj/commander.js.git",
+		"deepmerge": "^2.1.0",
+		"dockerode": "^2.5.5",
+		"enquirer": "^1.0.3",
+		"es6-template-strings": "^2.0.1",
+		"fs-extra": "^6.0.1",
+		"handlebars": "^4.0.11",
+		"marked": "^0.4.0",
+		"prompt-password": "^1.2.0",
+		"request": "2.87.0",
+		"request-promise": "4.2.2",
+		"terminal-kit": "^1.17.5",
+		"uuid": "^3.2.1"
+	},
+	"devDependencies": {
+		"jasmine": "^3.1.0",
+		"jasmine-spec-reporter": "^4.2.1"
+	},
+	"engines": {
+		"node": "7.9.0"
+	}
 }

@@ -1,147 +1,167 @@
 #!/usr/bin/env node
 
-const program = require('commander');
-const deis = require('../lib/deis');
-const serviceRegistryFactory = require('../lib/service-registry');
+const program = require("commander");
+const deis = require("../lib/deis");
+const serviceRegistryFactory = require("../lib/service-registry");
 const log = require("../lib/log");
 const Promise = require("bluebird");
 
 program
-  .description(
-    `
+	.description(
+		`
 Applies config from service registry. Any config changes will be set on active deis cluster.
 
 Example:
 
 # Set BUS on all apps with name that starts with "ag-"
 $ fruster config apply frostdigital/paceup
-`)
-  .option("-f, --force", "override config if conflicts")
-  .option("-p, --prune", "remove config from apps that is not defined in service registry")
-  .option("-c, --create-apps", "create app(s) if non existing")
-  .option("-d, --dry-run", "just check, no writing")
-  .option("-p, --pass-host-env", "pass current env to services")
-  .option("-e, --environment <environment>", "prod|int|stg etc")
-  .option("-h, --add-healthcheck", "adds healthchecks too all apps")
-  .option("-p, --print", "print config to stdout")
-  .parse(process.argv);
+`
+	)
+	.option("-f, --force", "override config if conflicts")
+	.option("-p, --prune", "remove config from apps that is not defined in service registry")
+	.option("-c, --create-apps", "create app(s) if non existing")
+	.option("-y, --yes", "perform the change, otherwise just dry run")
+	.option("-p, --pass-host-env", "pass current env to services")
+	.option("-e, --environment <environment>", "prod|int|stg etc")
+	.option("-h, --add-healthcheck", "adds healthchecks too all apps")
+	.option("-p, --print", "print config to stdout")
+	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
 const createApps = program.createApps;
-const dryRun = program.dryRun;
+const dryRun = !program.yes;
 const prune = program.prune;
 const passEnv = program.passHostEnv;
 const environment = program.environment;
 const addHealthcheck = program.addHealthcheck;
 
 if (!serviceRegPath) {
-  console.log("Missing service registry path");
-  process.exit(1);
+	console.log("Missing service registry path");
+	process.exit(1);
 }
 
-serviceRegistryFactory.create(serviceRegPath, { passHostEnv: passEnv, environment: environment }).then(serviceRegistry => {
-  
-  return deis.apps()
-    .then(apps => {      
-      return Promise.mapSeries(serviceRegistry.services, (service) => {
+serviceRegistryFactory
+	.create(serviceRegPath, { passHostEnv: passEnv, environment: environment })
+	.then(serviceRegistry => {
+		return deis
+			.apps()
+			.then(apps => {
+				return Promise.mapSeries(serviceRegistry.services, service => {
+					let promise = Promise.resolve();
 
-        let promise = Promise.resolve();
+					if (!apps.find(app => app.id == service.appName)) {
+						if (createApps) {
+							console.log(`[${service.appName}] Creating app ...`);
 
-        if(!apps.find(app => app.id == service.name)) {          
-          if(createApps) {
-            console.log(`[${service.name}] Creating app ...`);            
-            
-            if(!dryRun) {
-              promise.then(() => deis.createApp(service.name));
-            }            
-          } else {
-            log.warn(`Service ${service.name} does not exist in deis, skipping config of this service`);
-            service.skip = true;          
-          }
-        }
-        
-        if(addHealthcheck && !service.skip) {
-          console.log(`[${service.name}] Enabling healthcheck`);
-          
-          if(!dryRun) {
-            promise.then(() => deis.enableHealthcheck(service.name));            
-          }          
-        }
+							if (!dryRun) {
+								promise.then(() => deis.createApp(service.appName));
+							}
+						} else {
+							log.warn(
+								`Service ${service.appName} does not exist in deis, skipping config of this service`
+							);
+							service.skip = true;
+						}
+					}
 
-        return promise;
-      });            
-    })
-    .then(() => {      
-      let services = serviceRegistry.services.filter(service => !service.skip);
+					if (addHealthcheck && !service.skip) {
+						console.log(`[${service.appName}] Enabling healthcheck`);
 
-      if(program.print) {
-        services.forEach(service => {
-          console.log(service.name);
-          
-          Object.keys(service.env).sort().forEach(k => {
-            console.log(k, "=", service.env[k]);                        
-          });          
+						if (!dryRun) {
+							promise.then(() => deis.enableHealthcheck(service.appName));
+						}
+					}
 
-          console.log();
-        });              
-      }
+					return promise;
+				});
+			})
+			.then(() => {
+				let services = serviceRegistry.services.filter(service => !service.skip);
 
-      let changeSetPromises = services.map(service => {          
-        
-        return deis.getConfig(service.name).then(existingConfig => {
-                   
-          let changeSet = {};
+				if (program.print) {
+					services.forEach(service => {
+						console.log(service.appName);
 
-          for(let k in existingConfig) {
-            if(service.env[k] === undefined) {                
-              if(prune) {
-                log.warn(`[${service.name}] Will remove ${k} (value was "${existingConfig[k]}")`);
-                changeSet[k] = null;
-              } else {
-                log.warn(`[${service.name}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig[k]}"`);
-              }                
-            }
-            else if(existingConfig[k] != service.env[k]) {
-              console.log(`[${service.name}] Updating ${k} ${existingConfig[k]} -> ${service.env[k]}`);
-              changeSet[k] = service.env[k];
-            }
-          }
+						Object.keys(service.env)
+							.sort()
+							.forEach(k => {
+								console.log(k, "=", service.env[k]);
+							});
 
-          for(let k in service.env) {
-            if(existingConfig[k] === undefined) {
-              console.log(`[${service.name}] New config ${k}=${service.env[k]}`);
-              changeSet[k] = service.env[k];
-            }
-          }
+						console.log();
+					});
+				}
 
-          if(!Object.keys(changeSet).length) {            
-            log.success(`[${service.name}] up to date`);
-            changeSet = null;         
-          } 
+				let changeSetPromises = services.map(service => {
+					return deis.getConfig(service.appName).then(existingConfig => {
+						let changeSet = {};
 
-          return Promise.resolve({
-            changeSet: changeSet,
-            serviceName: service.name
-          });          
-        });
-      });
+						for (let k in existingConfig) {
+							if (service.env[k] === undefined) {
+								if (prune) {
+									log.warn(
+										`[${service.appName}] Will remove ${k} (value was "${existingConfig[k]}")`
+									);
+									changeSet[k] = null;
+								} else {
+									log.warn(
+										`[${
+											service.appName
+										}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${
+											existingConfig[k]
+										}"`
+									);
+								}
+							} else if (existingConfig[k] != service.env[k]) {
+								console.log(
+									`[${service.appName}] Updating ${k} ${existingConfig[k]} -> ${service.env[k]}`
+								);
+								changeSet[k] = service.env[k];
+							}
+						}
 
-      return Promise.all(changeSetPromises).mapSeries(changeSet => {       
-        if(!dryRun && changeSet.changeSet) {
-          console.log(`[${changeSet.serviceName}] Updating config...`);
-          return deis.setConfig(changeSet.serviceName, changeSet.changeSet)
-            .then(() => {
-              log.success(`[${changeSet.serviceName}] Done updating`);
-            })
-            .catch((err) => {
-              log.error(`[${changeSet.serviceName}] got error while updating config:\n${err.message}`);
-            });
-        }        
-      });      
-    });
+						for (let k in service.env) {
+							if (existingConfig[k] === undefined) {
+								console.log(`[${service.appName}] New config ${k}=${service.env[k]}`);
+								changeSet[k] = service.env[k];
+							}
+						}
 
-})
-.catch(err => {
-  console.log(err);
-  process.exit(1);
-});
+						if (!Object.keys(changeSet).length) {
+							log.success(`[${service.appName}] up to date`);
+							changeSet = null;
+						}
+
+						return Promise.resolve({
+							changeSet: changeSet,
+							serviceName: service.appName
+						});
+					});
+				});
+
+				return Promise.all(changeSetPromises).mapSeries(changeSet => {
+					if (!dryRun && changeSet.changeSet) {
+						console.log(`[${changeSet.serviceName}] Updating config...`);
+						return deis
+							.setConfig(changeSet.serviceName, changeSet.changeSet)
+							.then(() => {
+								log.success(`[${changeSet.serviceName}] Done updating`);
+							})
+							.catch(err => {
+								log.error(
+									`[${changeSet.serviceName}] got error while updating config:\n${err.message}`
+								);
+							});
+					}
+				});
+			})
+			.then(() => {
+				if (dryRun) {
+					console.log("This is a dry run, confirm by adding flag -y or --yes");
+				}
+			});
+	})
+	.catch(err => {
+		console.log(err);
+		process.exit(1);
+	});
