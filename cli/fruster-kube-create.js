@@ -2,7 +2,13 @@
 
 const program = require("commander");
 const serviceRegistryFactory = require("../lib/service-registry");
-const { createDeployment, createService } = require("../lib/kube/kube-client");
+const {
+	createDeployment,
+	createService,
+	createNamespace,
+	copySecret,
+	createConfig
+} = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 
 program
@@ -33,14 +39,24 @@ async function run() {
 	try {
 		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
 
-		if (app) {
-			const [appConfig] = serviceRegistry.getServices(app);
+		const apps = serviceRegistry.getServices(app || "*");
 
-			if (!appConfig) {
-				log.error("Could not find configuration for app/service " + app);
-				return process.exit(1);
-			}
+		if (!apps.length) {
+			log.error("Could not find configuration for services " + app);
+			return process.exit(1);
+		}
 
+		for (const appConfig of apps) {
+			// Upsert namespace
+			await createNamespace(appConfig.name);
+
+			// Copy existing imagePullSecret from default namespace to new service namespace
+			await copySecret(appConfig.imagePullSecret || "frost-docker-hub", "default", appConfig.name);
+
+			// Upsert config (saved as secets)
+			await createConfig(appConfig.name, appConfig.env);
+
+			// Upsert deployment based on configuration from service registry
 			await createDeployment(appConfig);
 
 			log.success("Created deployment");
@@ -50,8 +66,6 @@ async function run() {
 				const created = await createService(appConfig);
 				log.success(`Service ${created ? "was created" : "already exists"}`);
 			}
-		} else {
-			// TODO: Create/init all in service registry
 		}
 	} catch (err) {
 		console.log(err);

@@ -5,7 +5,7 @@
 		"test": "node ./spec/support/jasmine-runner.js"
 	},
 	"bin": {
-		"fruster": "./cli/index.js"
+		"fruster": "./cli/fruster.js"
 	},
 	"dependencies": {
 		"bluebird": "^3.5.1",
@@ -22,7 +22,6 @@
 		"request": "2.87.0",
 		"request-promise": "4.2.2",
 		"terminal-kit": "^1.17.5",
-		"ts-node": "^8.5.0",
 		"typescript": "^3.7.2",
 		"uuid": "^3.2.1"
 	},
