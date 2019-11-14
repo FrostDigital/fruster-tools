@@ -2,13 +2,7 @@
 
 const program = require("commander");
 const serviceRegistryFactory = require("../lib/service-registry");
-const {
-	createDeployment,
-	createService,
-	createNamespace,
-	copySecret,
-	createConfig
-} = require("../lib/kube/kube-client");
+const { createDeployment, createService, createNamespace, copySecret, setConfig } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 
 program
@@ -19,7 +13,7 @@ Create kubernetes deployment for services in service registry. Will skip deploym
 Example:
 
 # Set BUS on all apps with name that starts with "ag-"
-$ fruster kube create-deployment services.json -a
+$ fruster kube deployment create services.json -a ag-*
 `
 	)
 	.option("-y, --yes", "perform the change, otherwise just dry run")
@@ -54,7 +48,7 @@ async function run() {
 			await copySecret(appConfig.imagePullSecret || "frost-docker-hub", "default", appConfig.name);
 
 			// Upsert config (saved as secets)
-			await createConfig(appConfig.name, appConfig.env);
+			await setConfig(appConfig.name, appConfig.env);
 
 			// Upsert deployment based on configuration from service registry
 			await createDeployment(appConfig);

@@ -2,11 +2,13 @@
 const program = require("commander");
 
 program
-	.command("config apply", "set config on deployment")
-	.command("create deployment <service registry>", "create deployment")
+	.command("deployment", "Manage deployments")
+	.alias("deploy")
+	.alias("d")
+	.command("config <service name>", "Get config for service")
 	.description(
 		`
-Manage services deployed to kubernetes.
+Manage kubernetes resources.
 `
 	)
 	.parse(process.argv);

@@ -8,18 +8,18 @@ const log = require("../lib/log");
 program
 	.description(
 		`
-Sets config from service registry to a kubernetes deployment.
+Applices config in service registry to kubernetes deployment(s).
 
-$ fruster update-config services.json -a api-gateway
+$ fruster kube config apply services.json
 `
 	)
 	.option("-y, --yes", "perform the change, otherwise just dry run")
-	.option("-a, --app <app>", "name of app/service")
+	.option("-n, --name <app>", "optional name service, accepts wildcard patterns")
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
 const dryRun = !program.yes;
-const app = program.app;
+const serviceName = program.name;
 
 if (!serviceRegPath) {
 	console.log("Missing service registry path");
@@ -30,22 +30,17 @@ async function run() {
 	try {
 		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
 
-		if (app) {
-			const [appConfig] = serviceRegistry.getServices(app);
+		if (serviceName) {
+			const services = serviceRegistry.getServices(serviceName);
 
-			if (!appConfig) {
-				log.error("Could not find configuration for app/service " + app);
-				return process.exit(1);
-			}
+			for (const service of services) {
+				await kubeClient.createDeployment(service);
 
-			await kubeClient.createDeployment(appConfig);
-
-			log.success("Created deployment");
-
-			if (appConfig.routable) {
-				log.info("Service is routable, making sure that service exists...");
-				const created = await kubeClient.createService(appConfig);
-				log.success(`Service ${created ? "was created" : "already exists"}`);
+				// if (appConfig.routable) {
+				// 	log.info("Service is routable, making sure that service exists...");
+				// 	const created = await kubeClient.createService(appConfig);
+				// 	log.success(`Service ${created ? "was created" : "already exists"}`);
+				// }
 			}
 		} else {
 			// TODO: Create/init all in service registry
