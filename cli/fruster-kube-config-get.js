@@ -5,6 +5,7 @@ const { getConfig } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 
 program
+	.option("-n, --service-name <serviceName>", "name of service")
 	.description(
 		`
 Get config for a service (a.k.a app, a.k.a. deployment).
@@ -12,14 +13,13 @@ Get config for a service (a.k.a app, a.k.a. deployment).
 Example:
 
 # Get config for service named api-gateway
-$ fruster kube config api-gateway
+$ fruster kube config get -n api-gateway
 `
 	)
 	.parse(process.argv);
 
-const serviceName = program.args[0];
-
 async function run() {
+	const serviceName = program.serviceName;
 	try {
 		const config = await getConfig(serviceName);
 

@@ -19,6 +19,7 @@ program
 	.command("create-apps <registry>", "create apps defined in service registry")
 	// .command("create-deployment <registry>", "create kubernetes deployment defined in service registry")
 	.command("kube", "manage services in kubernetes")
+	.alias("k")
 	.command("destroy-apps <registry>", "destroy apps defined in service registry")
 	.command("use <cluster>", "switch kube and deis cluster")
 	.alias("switch")

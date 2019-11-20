@@ -16,17 +16,18 @@ Example:
 $ fruster kube deployment create services.json -a ag-*
 `
 	)
-	.option("-y, --yes", "perform the change, otherwise just dry run")
-	.option("-a, --app <app>", "name of app/service")
+	//	.option("-y, --yes", "perform the change, otherwise just dry run")
+	.option("-n, --service-name <app>", "optional name of service to create deployment")
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const dryRun = !program.yes;
+//const dryRun = !program.yes;
 const app = program.app;
 
 if (!serviceRegPath) {
-	console.log("Missing service registry path");
-	process.exit(1);
+	log.error("Missing service registry path");
+	program.outputHelp();
+	return process.exit(1);
 }
 
 async function run() {
@@ -41,6 +42,10 @@ async function run() {
 		}
 
 		for (const appConfig of apps) {
+			if (!appConfig.image) {
+				log.warn("No 'image' set for service " + appConfig.name);
+				continue;
+			}
 			// Upsert namespace
 			await createNamespace(appConfig.name);
 

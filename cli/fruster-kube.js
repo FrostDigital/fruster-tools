@@ -3,7 +3,6 @@ const program = require("commander");
 
 program
 	.command("deployment", "Manage deployments")
-	.alias("deploy")
 	.alias("d")
 	.command("config <service name>", "Get config for service")
 	.description(
