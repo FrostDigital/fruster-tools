@@ -8,6 +8,7 @@
 		"fruster": "./cli/fruster.js"
 	},
 	"dependencies": {
+		"ajv": "^6.10.2",
 		"bluebird": "^3.5.1",
 		"commander": "4.0.1",
 		"deepmerge": "^2.1.0",

@@ -2,9 +2,9 @@
 const program = require("commander");
 
 program
-	.command("deployment", "Manage deployments")
+	.command("deployment", "Manage deployments of services")
 	.alias("d")
-	.command("config <service name>", "Get config for service")
+	.command("config <service name>", "Manage config for services")
 	.description(
 		`
 Manage kubernetes resources.

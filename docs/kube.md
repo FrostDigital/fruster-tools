@@ -2,7 +2,7 @@
 
 Historically Fruster has been used with `deis` but since deis basically shutdown and kubernetes are getting more and more interesting features in itself we are about to move to use kubernetes directly.
 
-> Note: As now all commands are prefixed `fruster kube <command>` kind of like a feature flag, but it future `kube` will be removed.
+> Note: As now all commands are prefixed `fruster kube <command>` kind of like a feature flag, but it future `kube` prefix will be removed.
 
 ## Create and configure services from service registry
 

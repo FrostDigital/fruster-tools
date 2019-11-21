@@ -21,7 +21,7 @@ $ fruster kube deployment create services.json -a ag-*
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-//const dryRun = !program.yes;
+const dryRun = !program.yes;
 const app = program.app;
 
 if (!serviceRegPath) {
@@ -47,7 +47,7 @@ async function run() {
 				continue;
 			}
 			// Upsert namespace
-			await createNamespace(appConfig.name);
+			await createNamespace(appConfig.name, dryRun);
 
 			// Copy existing imagePullSecret from default namespace to new service namespace
 			await copySecret(appConfig.imagePullSecret || "frost-docker-hub", "default", appConfig.name);

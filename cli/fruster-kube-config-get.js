@@ -24,7 +24,7 @@ async function run() {
 		const config = await getConfig(serviceName);
 
 		if (!config) {
-			log.error("Could not find config for service " + serviceName);
+			log.warn(`Could not find config for '${serviceName}', does the service exist?`);
 			return process.exit(1);
 		}
 
