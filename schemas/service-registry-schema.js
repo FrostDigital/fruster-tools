@@ -2,7 +2,8 @@ module.exports = {
 	type: "object",
 	properties: {
 		name: {
-			description: "Name of service registry, non mandatory",
+			description:
+				"Name of service registry, non mandatory. Will be used as kubernetes namespace (but lowercased and dashed)",
 			type: "string"
 		},
 		env: {
@@ -89,5 +90,6 @@ module.exports = {
 				required: ["name"]
 			}
 		}
-	}
+	},
+	required: ["name"]
 };

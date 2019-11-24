@@ -21,14 +21,14 @@ $ fruster kube config get -n api-gateway
 async function run() {
 	const serviceName = program.serviceName;
 	try {
-		const config = await getConfig(serviceName);
+		const config = await getConfig(serviceName); // TODO: namespace!
 
 		if (!config) {
 			log.warn(`Could not find config for '${serviceName}', does the service exist?`);
 			return process.exit(1);
 		}
 
-		log.success("Got config for service", serviceName);
+		log.success(`Got config for service ${serviceName}`);
 
 		for (const key in config) {
 			log.info(`${key} = ${config[key]}`);

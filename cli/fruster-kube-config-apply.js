@@ -39,33 +39,34 @@ async function run() {
 	try {
 		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
 		const services = serviceRegistry.getServices(serviceName || "*");
+		const namespace = serviceRegistry.name;
 		const { servicesToCreate, existingServices } = await getServicesToCreate(services);
 
 		let createdServices = [];
 
 		if (!dryRun) {
 			for (const service of servicesToCreate) {
-				await createService(service);
+				await createService(namespace, service);
 				createdServices.push(service.name);
 				log.success(`[${service.name}] Was created`);
 			}
 		}
 
 		for (const service of createIfNonExisting ? services : existingServices) {
-			const existingConfig = (await kubeClient.getConfig(service.name)) || {};
+			const existingConfig = (await kubeClient.getConfig(namespace, service.name)) || {};
 			const newConfig = service.env || {};
 			const changes = getConfigChanges(service.name, existingConfig, newConfig);
 
 			let wasChanged = false;
 
 			if (changes && !dryRun) {
-				await kubeClient.setConfig(service.name, changes);
+				await kubeClient.setConfig(namespace, service.name, changes);
 				log.success(`[${service.name}] Config was updated`);
 				wasChanged = true;
 			}
 
 			if (recreateService && !createdServices.includes(service.name)) {
-				const deployment = await kubeClient.getDeployment(service.name);
+				const deployment = await kubeClient.getDeployment(namespace, service.name);
 
 				if (deployment) {
 					const existingContainerSpec = deployment.spec.template.spec.containers[0];
@@ -82,7 +83,7 @@ async function run() {
 					// }
 				}
 
-				const kubeService = await kubeClient.getService(service.name);
+				const kubeService = await kubeClient.getService(namespace, service.name);
 
 				let removeRoutable = false;
 
@@ -94,7 +95,7 @@ async function run() {
 				}
 
 				if (!dryRun) {
-					await createService(service, removeRoutable);
+					await createService(namespace, service, removeRoutable);
 					wasChanged = true;
 					log.success(`[${service.name}] Deployment was recreated`);
 				}
@@ -102,7 +103,7 @@ async function run() {
 
 			if (!dryRun && wasChanged) {
 				// Restart pods in order for changes to propagate
-				await kubeClient.restartPods(service.name, true);
+				await kubeClient.restartPods(namespace, service.name, true);
 			}
 		}
 
@@ -149,7 +150,16 @@ async function getServicesToCreate(services) {
 	};
 }
 
+/**
+ *
+ * @param {string} name
+ * @param {any} existingConfig
+ * @param {any} newConfig
+ */
 function getConfigChanges(name, existingConfig, newConfig) {
+	/**
+	 * @type {any}
+	 */
 	let changeSet = {};
 	let upToDate = true;
 
@@ -190,18 +200,24 @@ function getConfigChanges(name, existingConfig, newConfig) {
 	return changeSet;
 }
 
-async function createService(service, removeKubeService = false) {
+/**
+ *
+ * @param {string} namespace
+ * @param {any} service
+ * @param {boolean=} removeKubeService
+ */
+async function createService(namespace, service, removeKubeService = false) {
 	// Upsert namespace
 	await kubeClient.createNamespace(service.name);
 	// Copy existing imagePullSecret from default namespace to new service namespace
-	await kubeClient.copySecret(service.imagePullSecret || "regcred", "default", service.name);
+	await kubeClient.copySecret(service.imagePullSecret || "regcred", "default", namespace);
 	// Create deployment
-	await kubeClient.createDeployment(service);
+	await kubeClient.createDeployment(namespace, service);
 	// Create k8s service if routable
 	if (service.routable) {
-		await kubeClient.createService(service);
+		await kubeClient.createService(namespace, service);
 	} else if (removeKubeService) {
-		await kubeClient.deleteService(service.name);
+		await kubeClient.deleteService(namespace, service.name);
 	}
 }
 
