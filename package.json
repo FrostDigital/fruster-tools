@@ -23,14 +23,16 @@
 		"prompt-password": "^1.2.0",
 		"request": "2.87.0",
 		"request-promise": "4.2.2",
+		"table": "^5.4.6",
 		"terminal-kit": "^1.17.5",
 		"typescript": "^3.7.2",
 		"uuid": "^3.2.1"
 	},
 	"devDependencies": {
-		"@types/json5": "0.0.30",
 		"@types/fs-extra": "^8.0.1",
+		"@types/json5": "0.0.30",
 		"@types/node": "^12.12.7",
+		"@types/table": "^4.0.7",
 		"@types/uuid": "^3.4.6",
 		"jasmine": "^3.1.0",
 		"jasmine-spec-reporter": "^4.2.1"
