@@ -8,6 +8,7 @@ program
 	.command("create", "create deis apps defined in service registry")
 	.command("scale", "scale number of replicas of a deployment")
 	.command("apps", "list apps/services")
+	.command("destroy", "removes an app")
 	.command("deis", "deprecated ")
 	.alias("d")
 	.parse(process.argv);

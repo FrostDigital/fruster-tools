@@ -24,7 +24,7 @@ const serviceName = program.app;
 const namespace = program.namespace;
 
 validateRequiredArg(serviceName, program, "Missing service name");
-validateRequiredArg(namespace, program, "Missing namespace");
+// validateRequiredArg(namespace, program, "Missing namespace");
 
 async function run() {
 	try {
