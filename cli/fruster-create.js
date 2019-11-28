@@ -4,31 +4,34 @@ const program = require("commander");
 const serviceRegistryFactory = require("../lib/service-registry");
 const { createDeployment, createService, createNamespace, copySecret, setConfig } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
+const { validateRequiredArg } = require("../lib/utils/cli-utils");
 
 program
 	.description(
 		`
-Create kubernetes deployment for services in service registry. Will skip deployments that already exists.
+Creates kubernetes deployments for services in service registry.
 
-Example:
+Examples:
 
-# Set BUS on all apps with name that starts with "ag-"
-$ fruster kube deployment create services.json -a ag-*
+# Creates deployments for services that are defined in service registry
+$ fruster create services.json
+
+# Creates kube deployments for all services which name starts with 'ag-'
+$ fruster create services.json -a ag-*
 `
 	)
-	//	.option("-y, --yes", "perform the change, otherwise just dry run")
-	.option("-n, --service-name <app>", "optional name of service to create deployment")
+	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
+	.option("-a, --app <app>", "optional name of service to create deployment")
+	// .option("-r, --recreate", "will recreate deployments")
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
 const dryRun = !program.yes;
 const app = program.app;
+const namespace = program.namespace;
 
-if (!serviceRegPath) {
-	log.error("Missing service registry path");
-	program.outputHelp();
-	return process.exit(1);
-}
+validateRequiredArg(serviceRegPath, program, "Missing service registry path");
+validateRequiredArg(namespace, program, "Missing namespace");
 
 async function run() {
 	try {
@@ -49,20 +52,20 @@ async function run() {
 			// Upsert namespace
 			await createNamespace(appConfig.name, dryRun);
 
-			// Copy existing imagePullSecret from default namespace to new service namespace
-			await copySecret(appConfig.imagePullSecret || "frost-docker-hub", "default", appConfig.name);
+			// Copy existing imagePullSecret from default namespace services namespace
+			await copySecret(appConfig.imagePullSecret || "regcred", "default", appConfig.name);
 
 			// Upsert config (saved as secets)
-			await setConfig(appConfig.name, appConfig.env);
+			await setConfig(namespace, appConfig.name, appConfig.env);
 
 			// Upsert deployment based on configuration from service registry
-			await createDeployment(appConfig);
+			await createDeployment(namespace, appConfig);
 
 			log.success("Created deployment");
 
 			if (appConfig.routable) {
 				log.info("Service is routable, making sure that service exists...");
-				const created = await createService(appConfig);
+				const created = await createService(namespace, appConfig);
 				log.success(`Service ${created ? "was created" : "already exists"}`);
 			}
 		}

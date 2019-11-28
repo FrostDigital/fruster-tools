@@ -15,10 +15,14 @@ module.exports = {
 			description: "Definition of variables that can be reused in services `env` configuration.",
 			type: "object"
 		},
-		defaultImageTag: {
-			description: "Default image tag, used if `imageTag` is not set on service level",
+		imageChannel: {
+			description: "Default image channel to track, for example `develop` or `master`.",
 			type: "string"
 		},
+		// defaultImageTag: {
+		// 	description: "Default image tag, used if `imageTag` is not set on service level",
+		// 	type: "string"
+		// },
 		services: {
 			type: "array",
 			items: {
@@ -39,6 +43,11 @@ module.exports = {
 					},
 					imageTag: {
 						description: "Docker image tag, if not set `latest` will be used",
+						type: "string"
+					},
+					imageChannel: {
+						description:
+							"Image channel, for example 'develop', 'master' or 'preprod'. If set the container will follow any new updates to docker images tagged for example `develop-*`. This cannot be used together with imageTag, if both are set imageTag will be used.",
 						type: "string"
 					},
 					routable: {

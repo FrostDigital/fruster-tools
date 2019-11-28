@@ -1,47 +1,49 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const deis = require("../lib/deis");
+const { getConfig } = require("../lib/kube/kube-client");
+const log = require("../lib/log");
+const { validateRequiredArg } = require("../lib/utils/cli-utils");
 
 program
+	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
+	.option("-a, --app <serviceName>", "name of service")
 	.description(
 		`
-Get config for app(s). Supports pattern on app name to get config for
-multiple apps.
+Get config for a service (a.k.a app, a.k.a. deployment).
 
 Example:
 
-# Returns all apps starting with "ag"
-$ fruster config get -a "ag*"
+# Get config for service named api-gateway
+$ fruster kube config get -a api-gateway -n paceup
 `
 	)
-	.option("-a, --app <app name>", "Application name or pattern with wildcard")
 	.parse(process.argv);
 
-const appName = program.app;
+const serviceName = program.app;
+const namespace = program.namespace;
 
-deis.apps(appName)
-	.then(apps => {
-		return Promise.all(
-			apps.map(app =>
-				deis.getConfig(app.id).then(config => {
-					return {
-						config: config,
-						appId: app.id
-					};
-				})
-			)
-		);
-	})
-	.then(configAndApps => {
-		configAndApps.forEach(configAndApp => {
-			console.log(`\n--- ${configAndApp.appId} ---\n`);
+validateRequiredArg(serviceName, program, "Missing service name");
+validateRequiredArg(namespace, program, "Missing namespace");
 
-			if (Object.keys(configAndApp.config).length) {
-				for (let k in configAndApp.config) {
-					console.log(`${k}=${configAndApp.config[k]}`);
-				}
-			}
-			console.log("");
-		});
-	});
+async function run() {
+	try {
+		const config = await getConfig(namespace, serviceName);
+
+		if (!config) {
+			log.warn(`Could not find config for '${serviceName}', does the service exist?`);
+			return process.exit(1);
+		}
+
+		log.success(`Got config for service ${serviceName}`);
+
+		for (const key in config) {
+			log.info(`${key} = ${config[key]}`);
+		}
+	} catch (err) {
+		console.log(err);
+		process.exit(1);
+	}
+}
+
+run();

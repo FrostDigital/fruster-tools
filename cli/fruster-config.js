@@ -2,14 +2,12 @@
 const program = require("commander");
 
 program
-	.command("set <config...>", "set config on app(s)")
-	.command("get", "get config of app(s)")
-	.command("unset", "remove config from app(s)")
-	.alias("remove")
-	.command("apply <registry>", "apply config from service registry")
+	.command("get <service name>", "get config of a service")
+	.command("set <config...> <service name>", "set config for a service")
+	.command("apply <service registry>", "set config from service registry")
 	.description(
 		`
-Manage application config. A more powerfull quivalent of "deis config".
+Manage kubernetes service config.
 `
 	)
 	.parse(process.argv);

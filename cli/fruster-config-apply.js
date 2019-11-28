@@ -1,167 +1,240 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const deis = require("../lib/deis");
 const serviceRegistryFactory = require("../lib/service-registry");
+const kubeClient = require("../lib/kube/kube-client");
 const log = require("../lib/log");
-const Promise = require("bluebird");
+const { validateRequiredArg } = require("../lib/utils/cli-utils");
 
 program
 	.description(
 		`
-Applies config from service registry. Any config changes will be set on active deis cluster.
+Applies config in service registry to kubernetes deployment(s).
 
-Example:
+This is a swiss army knife, where one can create, recreate and configure services in
+service registry.
 
-# Set BUS on all apps with name that starts with "ag-"
-$ fruster config apply frostdigital/paceup
+Examples:
+
+# Sets config for all services defined in service registry
+$ fruster kube config apply services.json
+
+# Creates deployments and sets config for all services defined in service registry
+$ fruster kube config apply services.json -c
+
+# Recreates deployemnt and sets config for api-gateway
+$ fruster kube config apply services.json -r -a api-gateway
 `
 	)
-	.option("-f, --force", "override config if conflicts")
-	.option("-p, --prune", "remove config from apps that is not defined in service registry")
-	.option("-c, --create-apps", "create app(s) if non existing")
 	.option("-y, --yes", "perform the change, otherwise just dry run")
-	.option("-p, --pass-host-env", "pass current env to services")
-	.option("-e, --environment <environment>", "prod|int|stg etc")
-	.option("-h, --add-healthcheck", "adds healthchecks too all apps")
-	.option("-p, --print", "print config to stdout")
+	.option("-a, --app <app>", "optional name of service, accepts wildcard patterns")
+	.option(
+		"-n, --namespace <namespace>",
+		"optional kubernetes namespace, will if not set take namespace from sevice registry"
+	)
+	.option("-c, --create", "create services that does not exist")
+	.option("-p, --prune", "remove existing config which does not exist in service registry")
+	.option(
+		"-r, --recreate",
+		"recreates deployment, this will update everything, such as resource limits, routable and domains - not only env config"
+	)
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const createApps = program.createApps;
 const dryRun = !program.yes;
+const serviceName = program.app;
+const namespaceArg = program.namespace;
 const prune = program.prune;
-const passEnv = program.passHostEnv;
-const environment = program.environment;
-const addHealthcheck = program.addHealthcheck;
+const createIfNonExisting = program.create;
+const recreateService = program.recreate;
 
-if (!serviceRegPath) {
-	console.log("Missing service registry path");
-	process.exit(1);
-}
+validateRequiredArg(serviceRegPath, program, "Missing service registry path");
 
-serviceRegistryFactory
-	.create(serviceRegPath, { passHostEnv: passEnv, environment: environment })
-	.then(serviceRegistry => {
-		return deis
-			.apps()
-			.then(apps => {
-				return Promise.mapSeries(serviceRegistry.services, service => {
-					let promise = Promise.resolve();
+async function run() {
+	try {
+		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
+		const services = serviceRegistry.getServices(serviceName || "*");
+		const namespace = namespaceArg || serviceRegistry.name;
+		const { servicesToCreate, existingServices } = await getServicesToCreate(services);
 
-					if (!apps.find(app => app.id == service.appName)) {
-						if (createApps) {
-							console.log(`[${service.appName}] Creating app ...`);
+		let createdServices = [];
 
-							if (!dryRun) {
-								promise.then(() => deis.createApp(service.appName));
-							}
-						} else {
-							log.warn(
-								`Service ${service.appName} does not exist in deis, skipping config of this service`
-							);
-							service.skip = true;
-						}
+		if (!dryRun) {
+			for (const service of servicesToCreate) {
+				await createService(namespace, service);
+				createdServices.push(service.name);
+				log.success(`[${service.name}] Was created`);
+			}
+		}
+
+		for (const service of createIfNonExisting ? services : existingServices) {
+			const existingConfig = (await kubeClient.getConfig(namespace, service.name)) || {};
+			const newConfig = service.env || {};
+			const changes = getConfigChanges(service.name, existingConfig, newConfig);
+
+			let wasChanged = false;
+
+			if (changes && !dryRun) {
+				await kubeClient.setConfig(namespace, service.name, changes);
+				log.success(`[${service.name}] Config was updated`);
+				wasChanged = true;
+			}
+
+			if (recreateService && !createdServices.includes(service.name)) {
+				log.info(`[${service.name}] Will recreate app`);
+				const deployment = await kubeClient.getDeployment(namespace, service.name);
+
+				if (deployment) {
+					const existingContainerSpec = deployment.spec.template.spec.containers[0];
+					const newImage = service.image + ":" + service.imageTag;
+					if (existingContainerSpec.image !== newImage) {
+						log.info(`[${service.name}] Updating image ${existingContainerSpec.image} -> ${newImage}`);
 					}
 
-					if (addHealthcheck && !service.skip) {
-						console.log(`[${service.appName}] Enabling healthcheck`);
-
-						if (!dryRun) {
-							promise.then(() => deis.enableHealthcheck(service.appName));
-						}
-					}
-
-					return promise;
-				});
-			})
-			.then(() => {
-				let services = serviceRegistry.services.filter(service => !service.skip);
-
-				if (program.print) {
-					services.forEach(service => {
-						console.log(service.appName);
-
-						Object.keys(service.env)
-							.sort()
-							.forEach(k => {
-								console.log(k, "=", service.env[k]);
-							});
-
-						console.log();
-					});
+					// 	TODO: Diff healtchecks so it's obvious that it is being altered
+					// if (!service.livenessHealthCheck || service.livenessHealthCheck === "fruster-health") {
+					// 	if (!existingContainerSpec.livenessProbe || existingContainerSpec.livenessProbe === {}) {
+					// 		log.info(`[${service.name}] Setting/updating liveness health check`);
+					// 	}
+					// }
 				}
 
-				let changeSetPromises = services.map(service => {
-					return deis.getConfig(service.appName).then(existingConfig => {
-						let changeSet = {};
+				const kubeService = await kubeClient.getService(namespace, service.name);
 
-						for (let k in existingConfig) {
-							if (service.env[k] === undefined) {
-								if (prune) {
-									log.warn(
-										`[${service.appName}] Will remove ${k} (value was "${existingConfig[k]}")`
-									);
-									changeSet[k] = null;
-								} else {
-									log.warn(
-										`[${
-											service.appName
-										}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${
-											existingConfig[k]
-										}"`
-									);
-								}
-							} else if (existingConfig[k] != service.env[k]) {
-								console.log(
-									`[${service.appName}] Updating ${k} ${existingConfig[k]} -> ${service.env[k]}`
-								);
-								changeSet[k] = service.env[k];
-							}
-						}
+				let removeRoutable = false;
 
-						for (let k in service.env) {
-							if (existingConfig[k] === undefined) {
-								console.log(`[${service.appName}] New config ${k}=${service.env[k]}`);
-								changeSet[k] = service.env[k];
-							}
-						}
-
-						if (!Object.keys(changeSet).length) {
-							log.success(`[${service.appName}] up to date`);
-							changeSet = null;
-						}
-
-						return Promise.resolve({
-							changeSet: changeSet,
-							serviceName: service.appName
-						});
-					});
-				});
-
-				return Promise.all(changeSetPromises).mapSeries(changeSet => {
-					if (!dryRun && changeSet.changeSet) {
-						console.log(`[${changeSet.serviceName}] Updating config...`);
-						return deis
-							.setConfig(changeSet.serviceName, changeSet.changeSet)
-							.then(() => {
-								log.success(`[${changeSet.serviceName}] Done updating`);
-							})
-							.catch(err => {
-								log.error(
-									`[${changeSet.serviceName}] got error while updating config:\n${err.message}`
-								);
-							});
-					}
-				});
-			})
-			.then(() => {
-				if (dryRun) {
-					console.log("This is a dry run, confirm by adding flag -y or --yes");
+				if (service.routable && !kubeService) {
+					log.info(`[${service.name}] Making service routable`);
+				} else if (!service.routable && kubeService) {
+					log.info(`[${service.name}] Removing 'routable', service will not receive TCP traffic anymore`);
+					removeRoutable = true;
 				}
-			});
-	})
-	.catch(err => {
+
+				if (!dryRun) {
+					await createService(namespace, service, removeRoutable);
+					wasChanged = true;
+					log.success(`[${service.name}] Deployment was recreated`);
+				}
+			}
+
+			if (!dryRun && wasChanged) {
+				// Restart pods in order for changes to propagate
+				await kubeClient.restartPods(namespace, service.name, true);
+			}
+		}
+
+		if (dryRun) {
+			log.warn("This was just a dry-run, run same command with flag --yes to commit changes");
+		}
+	} catch (err) {
 		console.log(err);
 		process.exit(1);
-	});
+	}
+}
+
+/**
+ * Checks which services that already exists and which ones that needs
+ * to be created.
+ *
+ * @param {Array<any>} services
+ */
+async function getServicesToCreate(services) {
+	let existsCounter = 0;
+	let servicesToCreate = [];
+	let existingServices = [];
+
+	log.info("Checking if services exists...");
+	for (const service of services) {
+		if (!(await kubeClient.getNamespace(service.name))) {
+			if (createIfNonExisting) {
+				log.info(`${service.name} does not exist and will be created`);
+				servicesToCreate.push(service);
+			} else {
+				log.warn(`${service.name} does not exist, run with option -c to create service`);
+			}
+		} else {
+			existingServices.push(service);
+			existsCounter++;
+		}
+	}
+
+	log.info(`${existsCounter} out of ${services.length} service(s) exists`);
+
+	return {
+		servicesToCreate,
+		existingServices
+	};
+}
+
+/**
+ *
+ * @param {string} name
+ * @param {any} existingConfig
+ * @param {any} newConfig
+ */
+function getConfigChanges(name, existingConfig, newConfig) {
+	/**
+	 * @type {any}
+	 */
+	let changeSet = {};
+	let upToDate = true;
+
+	for (const k in existingConfig) {
+		if (newConfig[k] === undefined) {
+			if (prune) {
+				log.warn(`[${name}] Will remove ${k} (value was "${existingConfig[k]}")`);
+				upToDate = false;
+			} else {
+				log.warn(
+					`[${name}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig[k]}"`
+				);
+				changeSet[k] = existingConfig[k];
+			}
+		} else if (existingConfig[k] != newConfig[k]) {
+			console.log(`[${name}] Updating ${k} ${existingConfig[k]} -> ${newConfig[k]}`);
+			changeSet[k] = newConfig[k];
+			upToDate = false;
+		} else {
+			log.debug(`[${name}] Config ${k} is up to date`);
+			changeSet[k] = newConfig[k];
+		}
+	}
+
+	for (const k in newConfig) {
+		if (existingConfig[k] === undefined) {
+			console.log(`[${name}] New config ${k}=${newConfig[k]}`);
+			changeSet[k] = newConfig[k];
+			upToDate = false;
+		}
+	}
+
+	if (upToDate) {
+		log.success(`[${name}] env config is up to date`);
+		changeSet = null;
+	}
+
+	return changeSet;
+}
+
+/**
+ *
+ * @param {string} namespace
+ * @param {any} service
+ * @param {boolean=} removeKubeService
+ */
+async function createService(namespace, service, removeKubeService = false) {
+	// Upsert namespace
+	await kubeClient.createNamespace(service.name);
+	// Copy existing imagePullSecret from default namespace to new service namespace
+	await kubeClient.copySecret(service.imagePullSecret || "regcred", "default", namespace);
+	// Create deployment
+	await kubeClient.createDeployment(namespace, service);
+	// Create k8s service if routable
+	if (service.routable) {
+		await kubeClient.createService(namespace, service);
+	} else if (removeKubeService) {
+		await kubeClient.deleteService(namespace, service.name);
+	}
+}
+
+run();
