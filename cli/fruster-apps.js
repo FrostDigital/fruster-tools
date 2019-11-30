@@ -8,7 +8,7 @@ const { printTable } = require("../lib/utils/cli-utils");
 program
 	.description(
 		`
-Get list of apps/services for a specific namespace.
+Lists all fruster apps.
 
 Examples:
 
@@ -16,7 +16,7 @@ $ fruster apps
 
 `
 	)
-	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
+	.option("-n, --namespace <namespace>", "filter by kubernetes namespace")
 	.parse(process.argv);
 
 const namespace = program.namespace;

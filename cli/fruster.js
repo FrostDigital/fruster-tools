@@ -4,10 +4,11 @@ const program = require("commander");
 
 program
 	.version("0.0.1")
+	.command("apps", "list apps/services")
 	.command("config", "set/unset/get config for app(s)")
 	.command("create", "create deis apps defined in service registry")
+	.command("logs", "view logs for an app")
 	.command("scale", "scale number of replicas of a deployment")
-	.command("apps", "list apps/services")
 	.command("destroy", "removes an app")
 	.command("deis", "deprecated ")
 	.alias("d")

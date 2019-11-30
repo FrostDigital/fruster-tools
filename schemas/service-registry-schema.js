@@ -1,5 +1,6 @@
 module.exports = {
 	type: "object",
+	additionalProperties: false,
 	properties: {
 		name: {
 			description:
@@ -19,6 +20,10 @@ module.exports = {
 			description: "Default image channel to track, for example `develop` or `master`.",
 			type: "string"
 		},
+		extends: {
+			description: "Optional filename to extend from",
+			type: "string"
+		},
 		// defaultImageTag: {
 		// 	description: "Default image tag, used if `imageTag` is not set on service level",
 		// 	type: "string"
@@ -27,6 +32,7 @@ module.exports = {
 			type: "array",
 			items: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					name: {
 						description: "Name of service, is used as identifier if extending other service registries",

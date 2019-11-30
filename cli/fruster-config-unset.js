@@ -7,13 +7,11 @@ const { validateRequiredArg } = require("../lib/utils/cli-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
-	.option("-a, --app <serviceName>", "name of service")
+	.option("-a, --app <serviceName>", "name of app")
 	.option("--no-restart", "remove config but do not restart service")
 	.description(
 		`
 Removes config from an app.
-
-Use this with precaution since most configuration should be persisted in service registry.
 
 Example:
 

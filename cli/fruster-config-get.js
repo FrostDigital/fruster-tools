@@ -7,34 +7,34 @@ const { validateRequiredArg } = require("../lib/utils/cli-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
-	.option("-a, --app <serviceName>", "name of service")
+	.option("-a, --app <serviceName>", "name of app")
 	.description(
 		`
-Get config for a service (a.k.a app, a.k.a. deployment).
+Get config for an app.
 
 Example:
 
-# Get config for service named api-gateway
+# Get config for app named api-gateway
 $ fruster config get -a api-gateway -n paceup
 `
 	)
 	.parse(process.argv);
 
-const serviceName = program.app;
+const app = program.app;
 const namespace = program.namespace;
 
-validateRequiredArg(serviceName, program, "Missing service name");
+validateRequiredArg(app, program, "Missing app name");
 
 async function run() {
 	try {
-		const config = await getConfig(namespace, serviceName);
+		const config = await getConfig(namespace, app);
 
 		if (!config) {
-			log.warn(`Could not find config for '${serviceName}', does the service exist?`);
+			log.warn(`Could not find config for '${app}', does the app exist?`);
 			return process.exit(1);
 		}
 
-		log.success(`Got config for service ${serviceName}`);
+		log.success(`Got config for app ${app}`);
 
 		for (const key in config) {
 			log.info(`${key} = ${config[key]}`);

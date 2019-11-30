@@ -16,18 +16,18 @@ service registry.
 
 Examples:
 
-# Sets config for all services defined in service registry
-$ fruster kube config apply services.json
+# Sets config for all apps defined in service registry
+$ fruster config apply services.json
 
-# Creates deployments and sets config for all services defined in service registry
-$ fruster kube config apply services.json -c
+# Creates deployments and sets config for all apps defined in service registry
+$ fruster config apply services.json -c
 
-# Recreates deployemnt and sets config for api-gateway
-$ fruster kube config apply services.json -r -a api-gateway
+# Recreates deployment and sets config for api-gateway
+$ fruster config apply services.json -r -a api-gateway
 `
 	)
 	.option("-y, --yes", "perform the change, otherwise just dry run")
-	.option("-a, --app <app>", "optional name of service, accepts wildcard patterns")
+	.option("-a, --app <app>", "optional name of app")
 	.option(
 		"-n, --namespace <namespace>",
 		"optional kubernetes namespace, will if not set take namespace from sevice registry"
