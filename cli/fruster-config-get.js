@@ -15,7 +15,7 @@ Get config for a service (a.k.a app, a.k.a. deployment).
 Example:
 
 # Get config for service named api-gateway
-$ fruster kube config get -a api-gateway -n paceup
+$ fruster config get -a api-gateway -n paceup
 `
 	)
 	.parse(process.argv);
@@ -24,7 +24,6 @@ const serviceName = program.app;
 const namespace = program.namespace;
 
 validateRequiredArg(serviceName, program, "Missing service name");
-// validateRequiredArg(namespace, program, "Missing namespace");
 
 async function run() {
 	try {

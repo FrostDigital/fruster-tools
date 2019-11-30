@@ -2,9 +2,10 @@
 const program = require("commander");
 
 program
-	.command("get <service name>", "get config of a service")
-	.command("set <config...> <service name>", "set config for a service")
-	.command("apply <service registry>", "set config from service registry")
+	.command("apply", "apply config from service registry")
+	.command("get", "get config of a service")
+	.command("set", "set config for a service")
+	.command("unset", "remove config for a service")
 	.description(
 		`
 Manage kubernetes service config.

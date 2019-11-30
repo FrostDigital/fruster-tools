@@ -8,16 +8,16 @@ const { validateRequiredArg } = require("../lib/utils/cli-utils");
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
 	.option("-a, --app <serviceName>", "name of service")
-	.option("--no-restart", "set config but do not restart service")
+	.option("--no-restart", "remove config but do not restart service")
 	.description(
 		`
-Sets config for an app.
+Removes config from an app.
 
 Use this with precaution since most configuration should be persisted in service registry.
 
 Example:
 
-$ fruster config set BUS=nats://localhost:4222 LOG_LEVEL=DEBUG -a api-gateway -n paceup
+$ fruster config unset BUS LOG_LEVEL -a api-gateway -n paceup
 `
 	)
 	.parse(process.argv);
@@ -31,32 +31,22 @@ validateRequiredArg(serviceName, program, "Missing app name");
 validateRequiredArg(config.length, program, "Missing config");
 
 async function run() {
-	if (!namespace) {
-		namespace = await getNamespaceForApp(serviceName);
-
-		if (!namespace) {
-			log.error(
-				"Found more than one deployment named " + serviceName + " narrow down by using -n to enter namespace"
-			);
-			process.exit(1);
-		}
-	}
-
-	const configMap = {};
-
-	config.forEach(configStr => {
-		const [key, value] = configStr.split("=");
-
-		if (!value) {
-			log.error(`Invalid config ${configStr}, write on format KEY=VALUE`);
-			return process.exit(1);
-		}
-
-		configMap[key] = value;
-	});
-
 	try {
+		if (!namespace) {
+			namespace = await getNamespaceForApp(serviceName);
+
+			if (!namespace) {
+				log.error(
+					"Found more than one deployment named " +
+						serviceName +
+						" narrow down by using -n to enter namespace"
+				);
+				process.exit(1);
+			}
+		}
+
 		const existingConfig = await getConfig(namespace, serviceName);
+		const newConfig = { ...existingConfig };
 
 		if (!existingConfig) {
 			log.error("Could not find config for service " + serviceName);
@@ -65,11 +55,9 @@ async function run() {
 
 		let hasChange = false;
 
-		for (const k in configMap) {
-			if (existingConfig[k] !== configMap[k]) {
-				hasChange = true;
-				break;
-			}
+		for (const conf of config) {
+			if (existingConfig[conf]) hasChange = true;
+			delete newConfig[conf];
 		}
 
 		if (!hasChange) {
@@ -77,11 +65,9 @@ async function run() {
 			return;
 		}
 
-		const mergedConfig = { ...existingConfig, ...configMap };
+		await setConfig(namespace, serviceName, newConfig);
 
-		await setConfig(namespace, serviceName, mergedConfig);
-
-		log.success(`✅ Updated config ${Object.keys(configMap).join(", ")}\n`);
+		log.success(`✅ Removed config ${config.join(", ")}\n`);
 
 		if (!noRestart) {
 			const restart = await restartPods(namespace, serviceName, true);
@@ -91,7 +77,7 @@ async function run() {
 			}
 		}
 
-		log.info("=== " + serviceName + "\n" + JSON.stringify(mergedConfig, null, 2));
+		log.info("=== " + serviceName + "\n" + JSON.stringify(newConfig, null, 2));
 	} catch (err) {
 		console.log(err);
 		process.exit(1);

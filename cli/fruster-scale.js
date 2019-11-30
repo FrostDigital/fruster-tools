@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const { scaleDeployment, getPods } = require("../lib/kube/kube-client");
+const { scaleDeployment, getPods, getNamespaceForApp } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 const { validateRequiredArg } = require("../lib/utils/cli-utils");
 
@@ -22,15 +22,21 @@ $ fruster scale -r 2 -n paceup -a pu-api-gateway
 
 const replicas = program.replicas;
 const serviceName = program.app;
-const namespace = program.namespace;
+let namespace = program.namespace;
 
 validateRequiredArg(serviceName, program, "Missing app name");
-validateRequiredArg(namespace, program, "Missing namespace");
 validateRequiredArg(replicas, program, "Missing number of replicas");
 
 async function run() {
-	if (!serviceName) {
-		return program.outputHelp();
+	if (!namespace) {
+		namespace = await getNamespaceForApp(serviceName);
+
+		if (!namespace) {
+			log.error(
+				"Found more than one deployment named " + serviceName + " narrow down by using -n to enter namespace"
+			);
+			process.exit(1);
+		}
 	}
 
 	if (replicas === undefined) {
