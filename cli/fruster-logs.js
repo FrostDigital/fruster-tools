@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const { getLogs, getNamespaceForApp, getPods } = require("../lib/kube/kube-client");
+const { getLogs, getPods } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
-const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespace } = require("../lib/utils/cli-utils");
 const inquirer = require("inquirer");
 const moment = require("moment");
 
@@ -35,14 +35,7 @@ validateRequiredArg(serviceName, program, "Missing app name");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getNamespaceForApp(serviceName);
-
-		if (!namespace) {
-			log.error(
-				"Found more than one deployment named " + serviceName + " narrow down by using -n to enter namespace"
-			);
-			process.exit(1);
-		}
+		namespace = await getOrSelectNamespace(serviceName);
 	}
 
 	const pods = await getPods(namespace, serviceName);

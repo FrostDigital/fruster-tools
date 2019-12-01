@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const { getConfig, setConfig, restartPods, getNamespaceForApp } = require("../lib/kube/kube-client");
+const { getConfig, setConfig, restartPods } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
-const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespace } = require("../lib/utils/cli-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
@@ -31,16 +31,7 @@ validateRequiredArg(config.length, program, "Missing config");
 async function run() {
 	try {
 		if (!namespace) {
-			namespace = await getNamespaceForApp(serviceName);
-
-			if (!namespace) {
-				log.error(
-					"Found more than one deployment named " +
-						serviceName +
-						" narrow down by using -n to enter namespace"
-				);
-				process.exit(1);
-			}
+			namespace = await getOrSelectNamespace(serviceName);
 		}
 
 		const existingConfig = await getConfig(namespace, serviceName);

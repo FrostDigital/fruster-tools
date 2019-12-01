@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const { scaleDeployment, getPods, getNamespaceForApp } = require("../lib/kube/kube-client");
+const { scaleDeployment, getPods } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
-const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespace } = require("../lib/utils/cli-utils");
 
 program
 	.description(
 		`
-Scale kubernetes deployment.
+Scale application.
 
 Example:
 
-$ fruster scale -r 2 -n paceup -a pu-api-gateway
+$ fruster scale -r 2 -a api-gateway
 `
 	)
 	.option("-r, --replicas <replicas>", "number of replicas")
@@ -29,14 +29,7 @@ validateRequiredArg(replicas, program, "Missing number of replicas");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getNamespaceForApp(serviceName);
-
-		if (!namespace) {
-			log.error(
-				"Found more than one deployment named " + serviceName + " narrow down by using -n to enter namespace"
-			);
-			process.exit(1);
-		}
+		namespace = await getOrSelectNamespace(serviceName);
 	}
 
 	if (replicas === undefined) {

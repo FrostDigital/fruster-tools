@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const { getConfig, setConfig, restartPods, getNamespaceForApp } = require("../lib/kube/kube-client");
+const { getConfig, setConfig } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { pathDeploymentWithConfigHash } = require("../lib/utils/config-utils");
+const { getOrSelectNamespace } = require("../lib/utils/cli-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
 	.option("-a, --app <serviceName>", "name of service")
-	.option("--no-restart", "set config but do not restart service")
+	// .option("--no-restart", "set config but do not restart service")
 	.description(
 		`
 Sets config for an app.
@@ -25,21 +27,14 @@ $ fruster config set BUS=nats://localhost:4222 LOG_LEVEL=DEBUG -a api-gateway -n
 const serviceName = program.app;
 let namespace = program.namespace;
 const config = program.args;
-const noRestart = program.noRestart;
+// const noRestart = program.noRestart;
 
 validateRequiredArg(serviceName, program, "Missing app name");
 validateRequiredArg(config.length, program, "Missing config");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getNamespaceForApp(serviceName);
-
-		if (!namespace) {
-			log.error(
-				"Found more than one deployment named " + serviceName + " narrow down by using -n to enter namespace"
-			);
-			process.exit(1);
-		}
+		namespace = await getOrSelectNamespace(serviceName);
 	}
 
 	const configMap = {};
@@ -81,15 +76,15 @@ async function run() {
 
 		await setConfig(namespace, serviceName, mergedConfig);
 
+		// Patch deployment to trigger rolling update with new config
+		await pathDeploymentWithConfigHash(
+			namespace,
+			serviceName,
+			mergedConfig,
+			`Config ${Object.keys(configMap).join(",")} was updated`
+		);
+
 		log.success(`✅ Updated config ${Object.keys(configMap).join(", ")}\n`);
-
-		if (!noRestart) {
-			const restart = await restartPods(namespace, serviceName, true);
-
-			if (restart) {
-				log.info("Pod(s) is being restarted, it may take a couple of seconds until running again...\n");
-			}
-		}
 
 		log.info("=== " + serviceName + "\n" + JSON.stringify(mergedConfig, null, 2));
 	} catch (err) {

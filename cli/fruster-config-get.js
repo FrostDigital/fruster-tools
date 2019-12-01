@@ -3,7 +3,7 @@
 const program = require("commander");
 const { getConfig } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
-const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespace } = require("../lib/utils/cli-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
@@ -21,12 +21,16 @@ $ fruster config get -a api-gateway -n paceup
 	.parse(process.argv);
 
 const app = program.app;
-const namespace = program.namespace;
+let namespace = program.namespace;
 
 validateRequiredArg(app, program, "Missing app name");
 
 async function run() {
 	try {
+		if (!namespace) {
+			namespace = await getOrSelectNamespace(app);
+		}
+
 		const config = await getConfig(namespace, app);
 
 		if (!config) {

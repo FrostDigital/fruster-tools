@@ -5,6 +5,7 @@ const serviceRegistryFactory = require("../lib/service-registry");
 const kubeClient = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { pathDeploymentWithConfigHash } = require("../lib/utils/config-utils");
 
 program
 	.description(
@@ -70,7 +71,7 @@ async function run() {
 		for (const service of createIfNonExisting ? services : existingServices) {
 			const existingConfig = (await kubeClient.getConfig(namespace, service.name)) || {};
 			const newConfig = service.env || {};
-			const changes = getConfigChanges(service.name, existingConfig, newConfig);
+			const changes = mergeConfig(service.name, existingConfig, newConfig);
 
 			let wasChanged = false;
 
@@ -118,8 +119,13 @@ async function run() {
 			}
 
 			if (!dryRun && wasChanged) {
-				// Restart pods in order for changes to propagate
-				await kubeClient.restartPods(namespace, service.name, true);
+				// Patch deployment to trigger rolling update with new config
+				await pathDeploymentWithConfigHash(
+					namespace,
+					service.name,
+					changes,
+					"Config updated when service registry was applied"
+				);
 			}
 		}
 
@@ -172,11 +178,11 @@ async function getServicesToCreate(services) {
  * @param {any} existingConfig
  * @param {any} newConfig
  */
-function getConfigChanges(name, existingConfig, newConfig) {
+function mergeConfig(name, existingConfig, newConfig) {
 	/**
 	 * @type {any}
 	 */
-	let changeSet = {};
+	let mergedConfig = {};
 	let upToDate = true;
 
 	for (const k in existingConfig) {
@@ -188,32 +194,32 @@ function getConfigChanges(name, existingConfig, newConfig) {
 				log.warn(
 					`[${name}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig[k]}"`
 				);
-				changeSet[k] = existingConfig[k];
+				mergedConfig[k] = existingConfig[k];
 			}
 		} else if (existingConfig[k] != newConfig[k]) {
 			console.log(`[${name}] Updating ${k} ${existingConfig[k]} -> ${newConfig[k]}`);
-			changeSet[k] = newConfig[k];
+			mergedConfig[k] = newConfig[k];
 			upToDate = false;
 		} else {
 			log.debug(`[${name}] Config ${k} is up to date`);
-			changeSet[k] = newConfig[k];
+			mergedConfig[k] = newConfig[k];
 		}
 	}
 
 	for (const k in newConfig) {
 		if (existingConfig[k] === undefined) {
 			console.log(`[${name}] New config ${k}=${newConfig[k]}`);
-			changeSet[k] = newConfig[k];
+			mergedConfig[k] = newConfig[k];
 			upToDate = false;
 		}
 	}
 
 	if (upToDate) {
 		log.success(`[${name}] env config is up to date`);
-		changeSet = null;
+		mergedConfig = null;
 	}
 
-	return changeSet;
+	return mergedConfig;
 }
 
 /**
