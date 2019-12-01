@@ -10,6 +10,7 @@ program
 	.command("deploy", "deploy new tag")
 	.command("history", "show release history for an app")
 	.alias("releases")
+	.command("info", "show info about an app")
 	.command("logs", "view logs for an app")
 	.command("restart", "restart an app")
 	.command("scale", "scale number of replicas of a deployment")

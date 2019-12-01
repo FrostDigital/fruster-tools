@@ -7,6 +7,7 @@ const log = require("../lib/log");
 const { validateRequiredArg, getUsername } = require("../lib/utils/cli-utils");
 const { pathDeploymentWithConfigHash } = require("../lib/utils/config-utils");
 const moment = require("moment");
+const { FRUSTER_LIVENESS_ANNOTATION } = require("../lib/kube/kube-constants");
 
 program
 	.description(
@@ -55,73 +56,75 @@ validateRequiredArg(serviceRegPath, program, "Missing service registry path");
 async function run() {
 	try {
 		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
-		const services = serviceRegistry.getServices(serviceName || "*");
+		const apps = serviceRegistry.getServices(serviceName || "*");
 		const namespace = namespaceArg || serviceRegistry.name;
-		const { servicesToCreate, existingServices } = await getServicesToCreate(services);
+		const { appsToCreate, existingApps } = await getAppsToCreate(apps);
 		const username = await getUsername();
 
 		let createdServices = [];
 
 		if (!dryRun) {
-			for (const service of servicesToCreate) {
-				await createService(namespace, service, false, `${username} created app from service reg`);
-				createdServices.push(service.name);
-				log.success(`[${service.name}] Was created`);
+			for (const app of appsToCreate) {
+				await createService(namespace, app, false, `${username} created app from service reg`);
+				createdServices.push(app.name);
+				log.success(`[${app.name}] Was created`);
 			}
 		}
 
-		for (const service of createIfNonExisting ? services : existingServices) {
-			const existingConfig = (await kubeClient.getConfig(namespace, service.name)) || {};
-			const newConfig = service.env || {};
-			const changes = mergeConfig(service.name, existingConfig, newConfig);
+		for (const app of createIfNonExisting ? apps : existingApps) {
+			const existingConfig = (await kubeClient.getConfig(namespace, app.name)) || {};
+			const newConfig = app.env || {};
+			const changes = mergeConfig(app.name, existingConfig, newConfig);
 
 			let wasChanged = false;
 
 			if (changes && !dryRun) {
-				await kubeClient.setConfig(namespace, service.name, changes);
-				log.success(`[${service.name}] Config was updated`);
+				await kubeClient.setConfig(namespace, app.name, changes);
+				log.success(`[${app.name}] Config was updated`);
 				wasChanged = true;
 			}
 
-			if (recreateService && !createdServices.includes(service.name)) {
-				log.info(`[${service.name}] Will recreate app...`);
-				const deployment = await kubeClient.getDeployment(namespace, service.name);
+			if (recreateService && !createdServices.includes(app.name)) {
+				log.info(`[${app.name}] Will recreate app...`);
+				const deployment = await kubeClient.getDeployment(namespace, app.name);
 
 				if (deployment) {
 					const existingContainerSpec = deployment.spec.template.spec.containers[0];
-					const newImage = service.image + ":" + service.imageTag;
+					const newImage = app.image + ":" + app.imageTag;
 					if (existingContainerSpec.image !== newImage) {
-						log.info(`[${service.name}] Updating image ${existingContainerSpec.image} -> ${newImage}`);
+						log.info(`[${app.name}] Updating image ${existingContainerSpec.image} -> ${newImage}`);
 					}
 
-					// 	TODO: Diff healtchecks so it's obvious that it is being altered
-					// if (!service.livenessHealthCheck || service.livenessHealthCheck === "fruster-health") {
-					// 	if (!existingContainerSpec.livenessProbe || existingContainerSpec.livenessProbe === {}) {
-					// 		log.info(`[${service.name}] Setting/updating liveness health check`);
-					// 	}
-					// }
+					const existingLivenessHealthCheck =
+						deployment.metadata.annotations[FRUSTER_LIVENESS_ANNOTATION] || "none";
+
+					if (app.livenessHealthCheck !== existingLivenessHealthCheck) {
+						log.info(
+							`[${app.name}] Liveness health check ${existingLivenessHealthCheck} -> ${app.livenessHealthCheck}`
+						);
+					}
 				}
 
-				const kubeService = await kubeClient.getService(namespace, service.name);
+				const kubeService = await kubeClient.getService(namespace, app.name);
 
 				let removeRoutable = false;
 
-				if (service.routable && !kubeService) {
-					log.info(`[${service.name}] Making service routable`);
-				} else if (!service.routable && kubeService) {
-					log.info(`[${service.name}] Removing 'routable', service will not receive TCP traffic anymore`);
+				if (app.routable && !kubeService) {
+					log.info(`[${app.name}] Updating routable 'false' -> 'true'`);
+				} else if (!app.routable && kubeService) {
+					log.info(`[${app.name}] Updating routable 'true' -> 'false'`);
 					removeRoutable = true;
 				}
 
 				if (!dryRun) {
 					await createService(
 						namespace,
-						service,
+						app,
 						removeRoutable,
 						`${username} recreated app from service registry at ${moment().format("YYYY-MM-DD HH:mm")}`
 					);
 					// wasChanged = true;
-					log.success(`[${service.name}] Deployment was recreated`);
+					log.success(`[${app.name}] Deployment was recreated`);
 				}
 			}
 
@@ -129,7 +132,7 @@ async function run() {
 				// Patch deployment to trigger rolling update with new config
 				await pathDeploymentWithConfigHash(
 					namespace,
-					service.name,
+					app.name,
 					changes,
 					"Config updated when service registry was applied"
 				);
@@ -151,22 +154,22 @@ async function run() {
  *
  * @param {Array<any>} services
  */
-async function getServicesToCreate(services) {
+async function getAppsToCreate(services) {
 	let existsCounter = 0;
-	let servicesToCreate = [];
-	let existingServices = [];
+	let appsToCreate = [];
+	let existingApps = [];
 
 	log.info("Checking if services exists...");
 	for (const service of services) {
 		if (!(await kubeClient.getNamespace(service.name))) {
 			if (createIfNonExisting) {
 				log.info(`${service.name} does not exist and will be created`);
-				servicesToCreate.push(service);
+				appsToCreate.push(service);
 			} else {
 				log.warn(`${service.name} does not exist, run with option -c to create service`);
 			}
 		} else {
-			existingServices.push(service);
+			existingApps.push(service);
 			existsCounter++;
 		}
 	}
@@ -174,8 +177,8 @@ async function getServicesToCreate(services) {
 	log.info(`${existsCounter} out of ${services.length} service(s) exists`);
 
 	return {
-		servicesToCreate,
-		existingServices
+		appsToCreate,
+		existingApps
 	};
 }
 
