@@ -37,6 +37,7 @@ async function run() {
 		.map(rs => {
 			const image = rs.spec.template.spec.containers[0].image;
 			const [imageName, imageTag] = image.split(":");
+
 			return {
 				changeCause: (rs.spec.template.metadata.annotations || {})["kubernetes.io/change-cause"],
 				timestamp: new Date(rs.metadata.creationTimestamp),
@@ -49,7 +50,7 @@ async function run() {
 		});
 
 	log.success(`Release history for ${serviceName} in namespace ${namespace}:\n`);
-	printTable(changeCauses);
+	printTable(changeCauses, ["AGE", "COMMENT ", "VERSION"]);
 	// if (replicas === undefined) {
 	// 	const pods = await getPods(namespace, serviceName);
 	// 	log.info(`Service has ${pods.length} pods, set --replicas to scale replicas`);

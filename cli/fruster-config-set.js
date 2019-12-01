@@ -10,7 +10,6 @@ const { getOrSelectNamespace } = require("../lib/utils/cli-utils");
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
 	.option("-a, --app <serviceName>", "name of service")
-	// .option("--no-restart", "set config but do not restart service")
 	.description(
 		`
 Sets config for an app.
@@ -27,7 +26,6 @@ $ fruster config set BUS=nats://localhost:4222 LOG_LEVEL=DEBUG -a api-gateway -n
 const serviceName = program.app;
 let namespace = program.namespace;
 const config = program.args;
-// const noRestart = program.noRestart;
 
 validateRequiredArg(serviceName, program, "Missing app name");
 validateRequiredArg(config.length, program, "Missing config");

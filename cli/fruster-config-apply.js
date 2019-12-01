@@ -4,8 +4,9 @@ const program = require("commander");
 const serviceRegistryFactory = require("../lib/service-registry");
 const kubeClient = require("../lib/kube/kube-client");
 const log = require("../lib/log");
-const { validateRequiredArg } = require("../lib/utils/cli-utils");
+const { validateRequiredArg, getUsername } = require("../lib/utils/cli-utils");
 const { pathDeploymentWithConfigHash } = require("../lib/utils/config-utils");
+const moment = require("moment");
 
 program
 	.description(
@@ -57,12 +58,13 @@ async function run() {
 		const services = serviceRegistry.getServices(serviceName || "*");
 		const namespace = namespaceArg || serviceRegistry.name;
 		const { servicesToCreate, existingServices } = await getServicesToCreate(services);
+		const username = await getUsername();
 
 		let createdServices = [];
 
 		if (!dryRun) {
 			for (const service of servicesToCreate) {
-				await createService(namespace, service);
+				await createService(namespace, service, false, `${username} created app from service reg`);
 				createdServices.push(service.name);
 				log.success(`[${service.name}] Was created`);
 			}
@@ -82,7 +84,7 @@ async function run() {
 			}
 
 			if (recreateService && !createdServices.includes(service.name)) {
-				log.info(`[${service.name}] Will recreate app`);
+				log.info(`[${service.name}] Will recreate app...`);
 				const deployment = await kubeClient.getDeployment(namespace, service.name);
 
 				if (deployment) {
@@ -112,8 +114,13 @@ async function run() {
 				}
 
 				if (!dryRun) {
-					await createService(namespace, service, removeRoutable);
-					wasChanged = true;
+					await createService(
+						namespace,
+						service,
+						removeRoutable,
+						`${username} recreated app from service registry at ${moment().format("YYYY-MM-DD HH:mm")}`
+					);
+					// wasChanged = true;
 					log.success(`[${service.name}] Deployment was recreated`);
 				}
 			}
@@ -227,14 +234,15 @@ function mergeConfig(name, existingConfig, newConfig) {
  * @param {string} namespace
  * @param {any} service
  * @param {boolean=} removeKubeService
+ * @param {string=} changeCause
  */
-async function createService(namespace, service, removeKubeService = false) {
+async function createService(namespace, service, removeKubeService = false, changeCause = "") {
 	// Upsert namespace
 	await kubeClient.createNamespace(service.name);
 	// Copy existing imagePullSecret from default namespace to new service namespace
 	await kubeClient.copySecret(service.imagePullSecret || "regcred", "default", namespace);
-	// Create deployment
-	await kubeClient.createDeployment(namespace, service);
+	// Upsert deployment
+	await kubeClient.createDeployment(namespace, service, changeCause);
 	// Create k8s service if routable
 	if (service.routable) {
 		await kubeClient.createService(namespace, service);

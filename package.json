@@ -28,6 +28,7 @@
 		"table": "^5.4.6",
 		"terminal-kit": "^1.17.5",
 		"typescript": "^3.7.2",
+		"username": "^5.1.0",
 		"uuid": "^3.2.1"
 	},
 	"devDependencies": {
