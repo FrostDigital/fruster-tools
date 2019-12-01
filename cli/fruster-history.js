@@ -6,6 +6,7 @@ const log = require("../lib/log");
 const { validateRequiredArg } = require("../lib/utils/cli-utils");
 const { printTable, getOrSelectNamespace } = require("../lib/utils/cli-utils");
 const moment = require("moment");
+const { CHANGE_CAUSE_ANNOTATION } = require("../lib/kube/kube-constants");
 
 program
 	.description(
@@ -39,7 +40,7 @@ async function run() {
 			const [imageName, imageTag] = image.split(":");
 
 			return {
-				changeCause: (rs.spec.template.metadata.annotations || {})["kubernetes.io/change-cause"],
+				changeCause: (rs.metadata.annotations || {})[CHANGE_CAUSE_ANNOTATION],
 				timestamp: new Date(rs.metadata.creationTimestamp),
 				imageTag
 			};

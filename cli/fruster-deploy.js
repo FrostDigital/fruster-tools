@@ -3,6 +3,7 @@
 const program = require("commander");
 const { getDeployment, patchDeployment } = require("../lib/kube/kube-client");
 const { validateRequiredArg, getOrSelectNamespace, getUsername } = require("../lib/utils/cli-utils");
+const { CHANGE_CAUSE_ANNOTATION } = require("../lib/kube/kube-constants");
 
 program
 	.description(
@@ -38,13 +39,13 @@ async function run() {
 
 	await patchDeployment(namespace, serviceName, {
 		body: {
+			metadata: {
+				annotations: {
+					[CHANGE_CAUSE_ANNOTATION]: `${username} changed image version ${existingImageTag} -> ${imageTag}`
+				}
+			},
 			spec: {
 				template: {
-					metadata: {
-						annotations: {
-							"kubernetes.io/change-cause": `${username} changed image version ${existingImageTag} -> ${imageTag}`
-						}
-					},
 					spec: {
 						containers: [{ name: serviceName, image: `${existingImage}:${imageTag}` }]
 					}

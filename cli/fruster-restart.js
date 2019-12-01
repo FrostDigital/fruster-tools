@@ -4,6 +4,7 @@ const program = require("commander");
 const { patchDeployment } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 const { validateRequiredArg, getOrSelectNamespace, getUsername } = require("../lib/utils/cli-utils");
+const { CHANGE_CAUSE_ANNOTATION } = require("../lib/kube/kube-constants");
 
 program
 	.description(
@@ -34,15 +35,12 @@ async function run() {
 
 	await patchDeployment(namespace, serviceName, {
 		body: {
-			spec: {
-				template: {
-					metadata: {
-						annotations: {
-							"kubernetes.io/change-cause": `Restart by ${username}`
-						}
-					}
+			metadata: {
+				annotations: {
+					[CHANGE_CAUSE_ANNOTATION]: `Restart by ${username}`
 				}
-			}
+			},
+			spec: { template: { metadata: { annotations: { restart: "true" } } } }
 		}
 	});
 
