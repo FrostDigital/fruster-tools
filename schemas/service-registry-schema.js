@@ -24,10 +24,6 @@ module.exports = {
 			description: "Optional filename to extend from",
 			type: "string"
 		},
-		// defaultImageTag: {
-		// 	description: "Default image tag, used if `imageTag` is not set on service level",
-		// 	type: "string"
-		// },
 		services: {
 			type: "array",
 			items: {
