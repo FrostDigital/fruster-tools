@@ -1,47 +1,52 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const deis = require("../lib/deis");
+const { getConfig } = require("../lib/kube/kube-client");
+const log = require("../lib/log");
+const { validateRequiredArg, getOrSelectNamespace } = require("../lib/utils/cli-utils");
 
 program
+	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
+	.option("-a, --app <serviceName>", "name of app")
 	.description(
 		`
-Get config for app(s). Supports pattern on app name to get config for
-multiple apps.
+Get config for an app.
 
 Example:
 
-# Returns all apps starting with "ag"
-$ fruster config get -a "ag*"
+# Get config for app named api-gateway
+$ fruster config get -a api-gateway -n paceup
 `
 	)
-	.option("-a, --app <app name>", "Application name or pattern with wildcard")
 	.parse(process.argv);
 
-const appName = program.app;
+const app = program.app;
+let namespace = program.namespace;
 
-deis.apps(appName)
-	.then(apps => {
-		return Promise.all(
-			apps.map(app =>
-				deis.getConfig(app.id).then(config => {
-					return {
-						config: config,
-						appId: app.id
-					};
-				})
-			)
-		);
-	})
-	.then(configAndApps => {
-		configAndApps.forEach(configAndApp => {
-			console.log(`\n--- ${configAndApp.appId} ---\n`);
+validateRequiredArg(app, program, "Missing app name");
 
-			if (Object.keys(configAndApp.config).length) {
-				for (let k in configAndApp.config) {
-					console.log(`${k}=${configAndApp.config[k]}`);
-				}
-			}
-			console.log("");
-		});
-	});
+async function run() {
+	try {
+		if (!namespace) {
+			namespace = await getOrSelectNamespace(app);
+		}
+
+		const config = await getConfig(namespace, app);
+
+		if (!config) {
+			log.warn(`Could not find config for '${app}', does the app exist?`);
+			return process.exit(1);
+		}
+
+		log.success(`Got config for app ${app}`);
+
+		for (const key in config) {
+			log.info(`${key}="${config[key]}"`);
+		}
+	} catch (err) {
+		console.log(err);
+		process.exit(1);
+	}
+}
+
+run();

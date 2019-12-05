@@ -1,36 +1,87 @@
 #!/usr/bin/env node
 
 const program = require("commander");
-const kube = require("../lib/kube");
-const deis = require("../lib/deis");
+const { getLogs, getPods } = require("../lib/kube/kube-client");
+const log = require("../lib/log");
+const { validateRequiredArg, getOrSelectNamespace } = require("../lib/utils/cli-utils");
+const inquirer = require("inquirer");
+const moment = require("moment");
 
 program
-	.option("-t, --tail", "Follow/tail logs")
-	.alias("-f, --follow")
+	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
+	.option("-l, --lines", "number of lines to show, defaults to 100")
+	.option("-a, --app <serviceName>", "name of service")
+	// .option("-f, --follow", "follow log stream")
+	.option("-t, --tail <num>", "number of lines to show, defaults to 100")
 	.description(
 		`
-Show logs of app(s). Will get logs via kube instead of deis.
+View logs for an app.
 
-Supports wildcard pattern for app name.
+Example:
 
-Examples:
+$ fruster logs -a api-gateway
 
-$ fruster logs "ag-api-g*"
-$ fruster logs ag-api-gateway
+$ fruster logs -a api-gateway -l 500 -t
 `
 	)
 	.parse(process.argv);
 
-const appName = program.args[0];
+const serviceName = program.app;
 const tail = program.tail;
+// const follow = program.follow;
+let namespace = program.namespace;
 
-if (!appName) {
-	console.log("Missing app name or pattern");
-	process.exit(-1);
+validateRequiredArg(serviceName, program, "Missing app name");
+
+async function run() {
+	if (!namespace) {
+		namespace = await getOrSelectNamespace(serviceName);
+	}
+
+	const pods = await getPods(namespace, serviceName);
+	let podName;
+
+	if (!pods.length) {
+		log.warn("Could not find pod for app " + serviceName);
+		process.exit(1);
+	} else if (pods.length > 1) {
+		podName = await selectPod(pods);
+	} else {
+		podName = pods[0].metadata.name;
+	}
+
+	const logLines = await getLogs(namespace, podName, tail || 100);
+	console.log(logLines);
 }
 
-deis.apps(appName).then(apps => Promise.all(apps.map(showLogs)));
+/**
+ *
+ * @param {any[]} pods
+ */
+async function selectPod(pods) {
+	const { podName } = await inquirer.prompt([
+		{
+			type: "list",
+			name: "podName",
+			choices: pods.map(pod => {
+				let status = "Unknown status";
+				let age = "? s";
 
-function showLogs(app) {
-	return kube.logs(app.id, tail).catch(console.err);
+				if (pod.status) {
+					status = pod.status.phase;
+					age = moment(pod.status.startTime).fromNow();
+				}
+
+				return {
+					value: pod.metadata.name,
+					name: `${pod.metadata.name} (${status}, ${age})`
+				};
+			}),
+			message: "Select pod"
+		}
+	]);
+
+	return podName;
 }
+
+run();

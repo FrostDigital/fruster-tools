@@ -18,7 +18,6 @@
 		},
 		{
 			"name": "fruster-auth-service",
-			"appName": "preprod-fruster-auth-service",
 			"env": {
 				"BAZ": "BAZ",
 				"INTERPOLATED_VALUE": "${INTERPOLATE_ME}!"
