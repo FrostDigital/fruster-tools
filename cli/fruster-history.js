@@ -52,12 +52,6 @@ async function run() {
 
 	log.success(`Release history for ${serviceName} in namespace ${namespace}:\n`);
 	printTable(changeCauses, ["AGE", "COMMENT ", "VERSION"]);
-	// if (replicas === undefined) {
-	// 	const pods = await getPods(namespace, serviceName);
-	// 	log.info(`Service has ${pods.length} pods, set --replicas to scale replicas`);
-	// } else if (await scaleDeployment(namespace, serviceName, replicas)) {
-	// 	log.success(`Deployment ${serviceName} scaled to ${replicas} replicas`);
-	// }
 }
 
 run();

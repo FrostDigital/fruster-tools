@@ -54,16 +54,27 @@ async function run() {
 		const { state } = lastContainerStatus;
 
 		let containerStatusDescription = " ";
+		let since = " ";
 
 		if (state.waiting && ["ImagePullBackOff", "ErrImagePull"].includes(state.waiting.reason)) {
 			containerStatusDescription = `Failed to pull image ${imageName}:${imageTag}`;
 		} else if (state.running) {
-			containerStatusDescription = "✅";
+			containerStatusDescription = `✅`;
+
+			since = moment(state.running.startedAt)
+				.fromNow()
+				.replace("minutes", "min");
+		} else if (state.terminated) {
+			containerStatusDescription = `💥`;
+
+			since = moment(state.terminated.startedAt)
+				.fromNow()
+				.replace("minutes", "min");
 		} else {
-			// TODO: Handle other cases
+			containerStatusDescription = JSON.stringify(state);
 		}
 
-		return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, containerStatusDescription];
+		return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, since, containerStatusDescription];
 	});
 
 	const tableModel = [];

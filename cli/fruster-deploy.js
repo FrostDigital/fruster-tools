@@ -41,8 +41,6 @@ async function run() {
 	const newImage = `${existingImage}:${imageTag}`;
 	const username = await getUsername();
 
-	// console.log(deployment.spec.template.spec.containers[0].image.split(":"), "->", existingImage, imageTag);
-
 	await patchDeployment(namespace, serviceName, {
 		body: {
 			metadata: {
