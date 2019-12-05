@@ -104,7 +104,12 @@ async function run() {
 	);
 
 	printTable(tableModel);
-	printTable(podInfo);
+
+	if (podInfo.length) {
+		printTable(podInfo);
+	} else {
+		log.warn("App has no pods");
+	}
 
 	log.info(
 		`For more detailed information type:\n$ kubectl -n ${namespace} describe po --selector app=${serviceName}\n`
