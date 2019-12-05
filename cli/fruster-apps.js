@@ -30,7 +30,7 @@ async function run() {
 				item.metadata.name,
 				item.metadata.namespace,
 				`${item.status.readyReplicas || 0}/${item.spec.replicas}`,
-				item.status.unavailableReplicas ? item.status.unavailableReplicas + " unavailable" : ""
+				item.status.unavailableReplicas ? item.status.unavailableReplicas + " unavailable" : " "
 			];
 		});
 

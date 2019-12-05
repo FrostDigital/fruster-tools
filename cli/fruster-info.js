@@ -60,7 +60,7 @@ async function run() {
 		} else if (state.running) {
 			containerStatusDescription = "✅";
 		} else {
-			//console.log(1111, lastContainerStatus);
+			// TODO: Handle other cases
 		}
 
 		return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, containerStatusDescription];
@@ -87,8 +87,9 @@ async function run() {
 		["Memory request:", requests.memory],
 		["Memory limit:", limits.memory],
 		["", ""],
-		["Liveness healthcheck:", livenesHealthcheck || "none"]
-		//["Update policy:"]
+		["Liveness healthcheck:", livenesHealthcheck || "none"],
+		["", ""],
+		["Update policy:", deployment.metadata.annotations["keel.sh/policy"]]
 	);
 
 	printTable(tableModel);

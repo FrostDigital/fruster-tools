@@ -41,7 +41,7 @@ async function run() {
 		log.success(`Got config for app ${app}`);
 
 		for (const key in config) {
-			log.info(`${key} = ${config[key]}`);
+			log.info(`${key}="${config[key]}"`);
 		}
 	} catch (err) {
 		console.log(err);

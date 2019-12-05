@@ -37,7 +37,7 @@ async function run() {
 		body: {
 			metadata: {
 				annotations: {
-					[CHANGE_CAUSE_ANNOTATION]: `Restart by ${username}`
+					[CHANGE_CAUSE_ANNOTATION]: `${username} restarted app`
 				}
 			},
 			spec: { template: { metadata: { annotations: { restart: "true" } } } }
