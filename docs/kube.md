@@ -4,7 +4,6 @@ Historically Fruster has been used with `deis` but since deis basically shutdown
 
 > Note: All old commands are still there but prefixed `fruster deis <command>`.
 
-
 ## User guide
 
 ## Create services from registry
@@ -15,10 +14,10 @@ fruster create services.json
 
 This command will create the following kubernetes resources related to each service defined in service registry:
 
-* A kubernetes [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-* A kubernetes service, if service is `routable`
-* A kubernetes [secret](https://kubernetes.io/docs/concepts/configuration/secret/) which holds the service's configuration (env vars)
-* Will validate that service registry secret exists, and if not copy it to the service registries namespace
+-   A kubernetes [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+-   A kubernetes service, if service is `routable`
+-   A kubernetes [secret](https://kubernetes.io/docs/concepts/configuration/secret/) which holds the service's configuration (env vars)
+-   Will validate that service registry secret exists, and if not copy it to the service registries namespace
 
 The `image` and `imageTag` defined in each service configuration in service registry will be deployed. Note that
 This command will create and configure a kubernetes deployment with configuration specified in the service registry. It will use `image` provided in service registry.
@@ -69,17 +68,46 @@ fruster config set <config...> <service name>
 
 Configuration should mostly be set by using `fruster kube config apply` so it is in sync with service registry, but at some occasions you might want to set a single configuration, ie. for test purposes.
 
+## Show logs
+
+```
+fruster logs -a api-gateway
+```
+
+## App history
+
+```
+fruster history -a api-gateway
+```
+
+Show a list containing releases and changes.
+
+## App info
+
+```
+fruster info -a api-gateway
+```
+
+Show details and status about an app.
+
+## Deploy
+
+```
+fruster deploy -t 1.0.1 -a api-gateway
+```
+
+Deploys a new version/tag of an app.
 
 ## Migration guide
 
 Update services in service registry to have following values:
 
-* `image`
-* `imageTag`
-* `routable` if app listens for HTTP
-* `domains` transfer domains listed in `deis domains -a ...` to here
-* `livenessHealthCheck` if needed to
-* `resources` if needed to
+-   `image`
+-   `imageTag`
+-   `routable` if app listens for HTTP
+-   `domains` transfer domains listed in `deis domains -a ...` to here
+-   `livenessHealthCheck` if needed to
+-   `resources` if needed to
 
 This is optional, but you should also remove deprecated fields `build, start, test` which are not needed anymore.
 
