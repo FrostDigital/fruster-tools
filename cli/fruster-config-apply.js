@@ -58,14 +58,14 @@ async function run() {
 		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
 		const apps = serviceRegistry.getServices(serviceName || "*");
 		const namespace = namespaceArg || serviceRegistry.name;
-		const { appsToCreate, existingApps } = await getAppsToCreate(apps);
+		const { appsToCreate, existingApps } = await getAppsToCreate(namespace, apps);
 		const username = await getUsername();
 
 		let createdServices = [];
 
 		if (!dryRun) {
 			for (const app of appsToCreate) {
-				await createService(namespace, app, false, `${username} created app from service reg`);
+				await createApp(namespace, app, false, `${username} created app from service reg`);
 				createdServices.push(app.name);
 				log.success(`[${app.name}] Was created`);
 			}
@@ -116,8 +116,13 @@ async function run() {
 					removeRoutable = true;
 				}
 
+				if (app.routable && !app.env.PORT) {
+					log.error("App is routable but missing PORT in env");
+					process.exit(1);
+				}
+
 				if (!dryRun) {
-					await createService(
+					await createApp(
 						namespace,
 						app,
 						removeRoutable,
@@ -152,16 +157,17 @@ async function run() {
  * Checks which services that already exists and which ones that needs
  * to be created.
  *
+ * @param {string} namespace
  * @param {Array<any>} services
  */
-async function getAppsToCreate(services) {
+async function getAppsToCreate(namespace, services) {
 	let existsCounter = 0;
 	let appsToCreate = [];
 	let existingApps = [];
 
 	log.info("Checking if services exists...");
 	for (const service of services) {
-		if (!(await kubeClient.getNamespace(service.name))) {
+		if (!(await kubeClient.getDeployment(namespace, service.name))) {
 			if (createIfNonExisting) {
 				log.info(`${service.name} does not exist and will be created`);
 				appsToCreate.push(service);
@@ -239,7 +245,7 @@ function mergeConfig(name, existingConfig, newConfig) {
  * @param {boolean=} removeKubeService
  * @param {string=} changeCause
  */
-async function createService(namespace, service, removeKubeService = false, changeCause = "") {
+async function createApp(namespace, service, removeKubeService = false, changeCause = "") {
 	// Upsert namespace
 	await kubeClient.createNamespace(service.name);
 	// Copy existing imagePullSecret from default namespace to new service namespace
