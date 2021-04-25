@@ -22,8 +22,7 @@ $ fruster config apply frostdigital/paceup
 	.option("-c, --create-apps", "create app(s) if non existing")
 	.option("-y, --yes", "perform the change, otherwise just dry run")
 	.option("-p, --pass-host-env", "pass current env to services")
-	.option("-e, --environment <environment>", "prod|int|stg etc")
-	.option("-h, --add-healthcheck", "adds healthchecks too all apps")
+	.option("-h, --add-healthcheck", "adds healthchecks")
 	.option("-p, --print", "print config to stdout")
 	.parse(process.argv);
 
@@ -32,7 +31,6 @@ const createApps = program.createApps;
 const dryRun = !program.yes;
 const prune = program.prune;
 const passEnv = program.passHostEnv;
-const environment = program.environment;
 const addHealthcheck = program.addHealthcheck;
 
 if (!serviceRegPath) {
@@ -41,7 +39,7 @@ if (!serviceRegPath) {
 }
 
 serviceRegistryFactory
-	.create(serviceRegPath, { passHostEnv: passEnv, environment: environment })
+	.create(serviceRegPath, { passHostEnv: passEnv })
 	.then(serviceRegistry => {
 		return deis
 			.apps()
@@ -64,7 +62,7 @@ serviceRegistryFactory
 						}
 					}
 
-					if (addHealthcheck && !service.skip) {
+					if (addHealthcheck && service.livenessHealthCheck === "fruster-health" && !service.skip) {
 						console.log(`[${service.appName}] Enabling healthcheck`);
 
 						if (!dryRun) {

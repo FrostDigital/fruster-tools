@@ -9,7 +9,7 @@ program
 	.command("apply <registry>", "apply config from service registry")
 	.description(
 		`
-Manage application config. A more powerfull quivalent of "deis config".
+Manage application config. A more powerfull equivalent of "deis config".
 `
 	)
 	.parse(process.argv);

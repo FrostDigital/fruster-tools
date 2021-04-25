@@ -94,7 +94,7 @@ module.exports = {
 					livenessHealthCheck: {
 						type: "string",
 						enum: ["fruster-health", "none"],
-						description: "Type of liveness probe, defaults to `fruster-health` wich wil "
+						description: "Type of liveness probe, defaults to `fruster-health` which will configure healt checks compatible with fruster-health-js"
 					}
 				},
 
