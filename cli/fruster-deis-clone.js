@@ -25,9 +25,9 @@ deis.apps("*").then(apps => {
 		process.exit(1);
 	}
 
-	return deis.getConfig(appToClone, true).then(config => {
+	return deis.getConfigDeprecated(appToClone, true).then(config => {
 		return deis
 			.createApp(targetAppName, program.createRemote ? targetAppName : false)
-			.then(() => deis.setConfig(targetAppName, config, true));
+			.then(() => deis.setConfigDeprecated(targetAppName, config, true));
 	});
 });

@@ -62,14 +62,6 @@ serviceRegistryFactory
 						}
 					}
 
-					if (addHealthcheck && service.livenessHealthCheck === "fruster-health" && !service.skip) {
-						console.log(`[${service.appName}] Enabling healthcheck`);
-
-						if (!dryRun) {
-							promise.then(() => deis.enableHealthcheck(service.appName));
-						}
-					}
-
 					return promise;
 				});
 			})
@@ -92,42 +84,69 @@ serviceRegistryFactory
 
 				let changeSetPromises = services.map(service => {
 					return deis.getConfig(service.appName).then(existingConfig => {
-						let changeSet = {};
+						let changeSet = {
+							values: {},
+							healthcheck: undefined
+						};
 
-						for (let k in existingConfig) {
+						for (let k in existingConfig.values) {
 							if (service.env[k] === undefined) {
 								if (prune) {
 									log.warn(
-										`[${service.appName}] Will remove ${k} (value was "${existingConfig[k]}")`
+										`[${service.appName}] Will remove ${k} (value was "${existingConfig.values[k]}")`
 									);
-									changeSet[k] = null;
+									changeSet.values[k] = null;
 								} else {
 									log.warn(
 										`[${
 											service.appName
 										}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${
-											existingConfig[k]
+											existingConfig.values[k]
 										}"`
 									);
 								}
-							} else if (existingConfig[k] != service.env[k]) {
+							} else if (existingConfig.values[k] != service.env[k]) {
 								console.log(
-									`[${service.appName}] Updating ${k} ${existingConfig[k]} -> ${service.env[k]}`
+									`[${service.appName}] Updating ${k} ${existingConfig.values[k]} -> ${service.env[k]}`
 								);
-								changeSet[k] = service.env[k];
+								changeSet.values[k] = service.env[k];
 							}
 						}
 
 						for (let k in service.env) {
-							if (existingConfig[k] === undefined) {
+							if (existingConfig.values[k] === undefined) {
 								console.log(`[${service.appName}] New config ${k}=${service.env[k]}`);
-								changeSet[k] = service.env[k];
+								changeSet.values[k] = service.env[k];
 							}
 						}
 
-						if (!Object.keys(changeSet).length) {
+						if (!Object.keys(changeSet.values).length) {
 							log.success(`[${service.appName}] up to date`);
-							changeSet = null;
+							changeSet.values = undefined;
+						}
+
+						if (addHealthcheck && service.livenessHealthCheck === "fruster-health") {
+							if (!existingConfig.healthcheck || Object.keys(existingConfig.healthcheck["web/cmd"]).length === 0) {
+								console.log(`[${service.appName}] Enabling healthcheck`);
+
+								if (!dryRun) {
+									changeSet.healthcheck = {
+										"web/cmd": {
+											livenessProbe: {
+												initialDelaySeconds: 50,
+												timeoutSeconds: 50,
+												periodSeconds: 10,
+												successThreshold: 1,
+												failureThreshold: 3,
+												exec: {
+													command: ["/bin/cat", ".health"]
+												}
+											}
+										}
+									};
+								}
+							}
+
 						}
 
 						return Promise.resolve({
@@ -138,7 +157,7 @@ serviceRegistryFactory
 				});
 
 				return Promise.all(changeSetPromises).mapSeries(changeSet => {
-					if (!dryRun && changeSet.changeSet) {
+					if (!dryRun && (changeSet.changeSet.values || changeSet.changeSet.healthcheck)) {
 						console.log(`[${changeSet.serviceName}] Updating config...`);
 						return deis
 							.setConfig(changeSet.serviceName, changeSet.changeSet)

@@ -24,7 +24,7 @@ deis.apps(appName)
 	.then(apps => {
 		return Promise.all(
 			apps.map(app =>
-				deis.getConfig(app.id).then(config => {
+				deis.getConfigDeprecated(app.id).then(config => {
 					return {
 						config: config,
 						appId: app.id
