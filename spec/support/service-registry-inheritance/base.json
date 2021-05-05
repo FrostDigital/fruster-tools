@@ -7,9 +7,6 @@
 		{
 			"name": "fruster-api-gateway",
 			"repo": "http://github.com/frostdigital/fruster-api-gateway",
-			"build": "npm install",
-			"start": "npm start",
-			"test": "npm test",
 			"env": {
 				"FOO": "FOO",
 				"HELLO_FROM_BASE": "true"
@@ -17,10 +14,7 @@
 		},
 		{
 			"name": "fruster-auth-service",
-			"repo": "http://github.com/frostdigital/fruster-auth-service",
-			"build": "npm install",
-			"start": "npm start",
-			"test": "npm test"
+			"repo": "http://github.com/frostdigital/fruster-auth-service"
 		}
 	]
 }

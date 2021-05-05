@@ -18,12 +18,10 @@ $ fruster config create-apps frostdigital/paceup
 `
 	)
 	.option("-d, --dry-run", "just check, no writing")
-	.option("-e, --environment <environment>", "prod|int|stg etc")
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
 const dryRun = program.dryRun;
-const environment = program.environment;
 
 if (!serviceRegPath) {
 	console.log("Missing service registry path");
@@ -31,7 +29,7 @@ if (!serviceRegPath) {
 }
 
 serviceRegistryFactory
-	.create(serviceRegPath, { environment: environment })
+	.create(serviceRegPath)
 	.then(serviceRegistry => {
 		return deis.apps().then(apps => {
 			return Promise.mapSeries(serviceRegistry.services, service => {

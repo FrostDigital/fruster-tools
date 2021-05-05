@@ -67,9 +67,6 @@ describe("Service registry", () => {
 			expect(json.services[0].env.FOO).toBe("BAR");
 			expect(json.services[1].env.HELLO_FROM_SUPER).toBe("true");
 			expect(json.name).toBe("test");
-
-			const frusterAuthService = json.services.find(service => service.name === "fruster-auth-service");
-			expect(frusterAuthService.appName).toBe("preprod-fruster-auth-service");
 		});
 
 		it("should interpolate env", () => {

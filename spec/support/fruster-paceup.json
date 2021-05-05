@@ -1,25 +1,19 @@
 {
-  "env": { 
-    "LOG_LEVEL": "DEBUG"
-  },
-  "name": "test",
-  "services": [
-    {
-      "name": "fruster-api-gateway",
-      "repo": "http://github.com/frostdigital/fruster-api-gateway",      
-      "build": "npm install",
-      "start": "npm start",
-      "test": "npm test",
-      "env": {
-        "FOO": "${AN_ENV_VAR}"
-      }
-    },
-    {
-      "name": "fruster-auth-service",
-      "repo": "http://github.com/frostdigital/fruster-auth-service",      
-      "build": "npm install",
-      "start": "npm start",
-      "test": "npm test"
-    }
-  ]
+	"env": {
+		"LOG_LEVEL": "DEBUG"
+	},
+	"name": "test",
+	"services": [
+		{
+			"name": "fruster-api-gateway",
+			"repo": "http://github.com/frostdigital/fruster-api-gateway",
+			"env": {
+				"FOO": "${AN_ENV_VAR}"
+			}
+		},
+		{
+			"name": "fruster-auth-service",
+			"repo": "http://github.com/frostdigital/fruster-auth-service"
+		}
+	]
 }
