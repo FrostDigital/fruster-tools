@@ -126,7 +126,9 @@ serviceRegistryFactory
 						}
 
 						if (addHealthcheck && service.livenessHealthCheck === "fruster-health") {
-							if (!existingConfig.healthcheck || Object.keys(existingConfig.healthcheck["web/cmd"]).length === 0) {
+							if (!existingConfig.healthcheck
+								|| Object.keys(existingConfig.healthcheck).length === 0
+								|| Object.keys(existingConfig.healthcheck["web/cmd"]).length === 0) {
 								console.log(`[${service.appName}] Enabling healthcheck`);
 
 								if (!dryRun) {
