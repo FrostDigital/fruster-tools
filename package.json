@@ -2,7 +2,8 @@
 	"name": "fruster-tools",
 	"version": "0.2.0",
 	"scripts": {
-		"test": "node ./spec/support/jasmine-runner.js"
+		"test": "ts-node ./spec/support/jasmine-runner.js",
+		"build": "rimraf ./dist/ && tsc -p ./tsconfig.dist.json"
 	},
 	"bin": {
 		"fruster": "./cli/fruster.js"
@@ -29,12 +30,18 @@
 	"devDependencies": {
 		"@types/fs-extra": "^9.0.13",
 		"@types/inquirer": "^6.5.0",
+		"@types/jasmine": "^3.10.2",
 		"@types/json5": "0.0.30",
+		"@types/lodash": "^4.14.178",
 		"@types/node": "^12.12.7",
 		"@types/request-promise": "^4.1.48",
 		"@types/table": "^4.0.7",
+		"@types/terminal-kit": "^1.28.4",
 		"@types/uuid": "^3.4.6",
 		"jasmine": "^3.1.0",
-		"jasmine-spec-reporter": "^4.2.1"
+		"jasmine-spec-reporter": "^4.2.1",
+		"rimraf": "^3.0.2",
+		"ts-node": "^10.4.0",
+		"typescript": "^4.5.4"
 	}
 }
