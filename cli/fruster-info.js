@@ -61,15 +61,11 @@ async function run() {
 		} else if (state.running) {
 			containerStatusDescription = `✅`;
 
-			since = moment(state.running.startedAt)
-				.fromNow()
-				.replace("minutes", "min");
+			since = moment(state.running.startedAt).fromNow().replace("minutes", "min");
 		} else if (state.terminated) {
 			containerStatusDescription = `💥`;
 
-			since = moment(state.terminated.startedAt)
-				.fromNow()
-				.replace("minutes", "min");
+			since = moment(state.terminated.startedAt).fromNow().replace("minutes", "min");
 		} else {
 			containerStatusDescription = JSON.stringify(state);
 		}
@@ -99,8 +95,8 @@ async function run() {
 		["Memory limit:", limits.memory],
 		["", ""],
 		["Liveness healthcheck:", livenesHealthcheck || "none"],
-		["", ""],
-		["Update policy:", deployment.metadata.annotations["keel.sh/policy"]]
+		["", ""]
+		// ["Update policy:", deployment.metadata.annotations["keel.sh/policy"]]
 	);
 
 	printTable(tableModel);

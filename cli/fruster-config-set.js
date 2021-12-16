@@ -4,7 +4,7 @@ const program = require("commander");
 const { getConfig, setConfig } = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 const { validateRequiredArg } = require("../lib/utils/cli-utils");
-const { pathDeploymentWithConfigHash } = require("../lib/utils/config-utils");
+const { patchDeploymentWithConfigHash } = require("../lib/utils/config-utils");
 const { getOrSelectNamespace } = require("../lib/utils/cli-utils");
 
 program
@@ -37,7 +37,7 @@ async function run() {
 
 	const configMap = {};
 
-	config.forEach(configStr => {
+	config.forEach((configStr) => {
 		const [key, value] = configStr.split("=");
 
 		if (!value) {
@@ -75,7 +75,7 @@ async function run() {
 		await setConfig(namespace, serviceName, mergedConfig);
 
 		// Patch deployment to trigger rolling update with new config
-		await pathDeploymentWithConfigHash(
+		await patchDeploymentWithConfigHash(
 			namespace,
 			serviceName,
 			mergedConfig,

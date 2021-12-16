@@ -5,7 +5,7 @@ const serviceRegistryFactory = require("../lib/service-registry");
 const kubeClient = require("../lib/kube/kube-client");
 const log = require("../lib/log");
 const { validateRequiredArg, getUsername } = require("../lib/utils/cli-utils");
-const { pathDeploymentWithConfigHash } = require("../lib/utils/config-utils");
+const { patchDeploymentWithConfigHash } = require("../lib/utils/config-utils");
 const moment = require("moment");
 const { FRUSTER_LIVENESS_ANNOTATION } = require("../lib/kube/kube-constants");
 
@@ -135,7 +135,7 @@ async function run() {
 
 			if (!dryRun && wasChanged) {
 				// Patch deployment to trigger rolling update with new config
-				await pathDeploymentWithConfigHash(
+				await patchDeploymentWithConfigHash(
 					namespace,
 					app.name,
 					changes,
@@ -184,7 +184,7 @@ async function getAppsToCreate(namespace, services) {
 
 	return {
 		appsToCreate,
-		existingApps
+		existingApps,
 	};
 }
 

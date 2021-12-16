@@ -10,5 +10,5 @@ module.exports = {
 
 	clustersHome: process.env.CLUSTERS_HOME || path.join(os.homedir(), ".clusters"),
 
-	kubeClientVersion: process.env.KUBE_CLIENT_VERSION || "1.9"
+	kubeClientVersion: process.env.KUBE_CLIENT_VERSION || "1.13",
 };

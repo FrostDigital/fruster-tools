@@ -9,7 +9,9 @@ const { validateRequiredArg, getUsername } = require("../lib/utils/cli-utils");
 program
 	.description(
 		`
-Creates kubernetes deployments for services in service registry.
+Creates kubernetes deployments for services that are defined service registry.
+
+Namespace will be created if it does not already exists.
 
 Examples:
 
@@ -20,9 +22,9 @@ $ fruster create services.json
 $ fruster create services.json -a ag-*
 `
 	)
+	.option("-y, --yes", "perform the change, otherwise just dry run")
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
 	.option("-a, --app <app>", "optional name of service to create deployment")
-	// .option("-r, --recreate", "will recreate deployments")
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
@@ -51,23 +53,44 @@ async function run() {
 			continue;
 		}
 		// Upsert namespace
-		await createNamespace(appConfig.name, dryRun);
+		await createNamespace(namespace || appConfig.name, dryRun);
 
-		// Copy existing imagePullSecret from default namespace services namespace
-		await copySecret(appConfig.imagePullSecret || "regcred", "default", appConfig.name);
+		if (appConfig.imagePullSecret) {
+			if (!dryRun) {
+				// Copy existing imagePullSecret from default namespace services namespace
+				if (!(await copySecret(appConfig.imagePullSecret, "default", appConfig.name))) {
+					process.exit(1);
+				}
+			} else {
+				log.info(`[Dry run] Skipping copy of imagePullSecret ${appConfig.imagePullSecret || "regcred"}`);
+			}
+		}
 
-		// Upsert config (saved as secets)
-		await setConfig(namespace, appConfig.name, appConfig.env);
+		if (!dryRun) {
+			// Upsert config (saved as secets)
+			await setConfig(namespace, appConfig.name, appConfig.env);
+		} else {
+			log.info(`[Dry run] Skipping set config ${appConfig.name} ${JSON.stringify(appConfig.env)}`);
+		}
 
-		// Upsert deployment based on configuration from service registry
-		await createDeployment(namespace, appConfig, username + " created app");
+		if (!dryRun) {
+			// Upsert deployment based on configuration from service registry
+			await createDeployment(namespace, appConfig, username + " created app", appConfig.imagePullSecret);
+		} else {
+			log.info(`[Dry run] Skipping create deployment`);
+		}
 
 		log.success("Created deployment");
 
 		if (appConfig.routable) {
 			log.info("Service is routable, making sure that service exists...");
-			const created = await createService(namespace, appConfig);
-			log.success(`Service ${created ? "was created" : "already exists"}`);
+
+			if (!dryRun) {
+				const created = await createService(namespace, appConfig);
+				log.success(`Service ${created ? "was created" : "already exists"}`);
+			} else {
+				log.info(`[Dry run] Skipping make routable`);
+			}
 		}
 	}
 }
