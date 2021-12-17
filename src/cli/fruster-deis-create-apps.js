@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 const serviceRegistryFactory = require("../service-registry");
 const log = require("../log");
@@ -21,7 +21,7 @@ $ fruster config create-apps frostdigital/paceup
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const dryRun = program.dryRun;
+const dryRun = program.opts().dryRun;
 
 if (!serviceRegPath) {
 	console.log("Missing service registry path");
@@ -35,14 +35,14 @@ serviceRegistryFactory
 			return Promise.mapSeries(serviceRegistry.services, (service) => {
 				let promise = Promise.resolve();
 
-				if (!apps.find((app) => app.id == service.appName)) {
-					log.info(`[${service.appName}] Creating app ...`);
+				if (!apps.find((app) => app.id == service.name)) {
+					log.info(`[${service.name}] Creating app ...`);
 
 					if (!dryRun) {
-						promise.then(() => deis.createApp(service.appName));
+						promise.then(() => deis.createApp(service.name));
 					}
 				} else {
-					log.success(`[${service.appName}] Already exists`);
+					log.success(`[${service.name}] Already exists`);
 				}
 
 				return promise;

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 
 program
@@ -18,7 +18,7 @@ $ fruster config set BUS=nats://10.2.2.24:4222 -a "ag-*"
 	.option("-a, --app <app name>", "Application name or pattern with wildcard")
 	.parse(process.argv);
 
-const appName = program.app;
+const appName = program.opts().app;
 const config = program.args;
 
 if (!config.length) {

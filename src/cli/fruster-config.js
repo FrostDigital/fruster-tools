@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const program = require("commander");
+const { program } = require("commander");
 
 program
 	.command("apply", "apply config from service registry")

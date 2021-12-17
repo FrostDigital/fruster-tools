@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 const log = require("../log");
 const Promise = require("bluebird");
@@ -30,6 +30,7 @@ deis.apps(appName)
 		log.info(`Enabling healthcheck on ${apps.length} app(s) - this may take a while...`);
 		return Promise.mapSeries(apps, (app) => {
 			log.info(`[${app.id}] enabling healthcheck...`);
+			// @ts-ignore
 			return deis.enableHealthcheck(app.id).catch((err) => {
 				log.error(`[${app.id}] failed setting healthcheck: ${err}`);
 			});

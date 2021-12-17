@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const { getConfig, setConfig } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg } = require("../utils/cli-utils");
@@ -23,8 +23,8 @@ $ fruster config set BUS=nats://localhost:4222 LOG_LEVEL=DEBUG -a api-gateway -n
 	)
 	.parse(process.argv);
 
-const serviceName = program.app;
-let namespace = program.namespace;
+const serviceName = program.opts().app;
+let namespace = program.opts().namespace;
 const config = program.args;
 
 validateRequiredArg(serviceName, program, "Missing app name");
@@ -45,6 +45,7 @@ async function run() {
 			return process.exit(1);
 		}
 
+		// @ts-ignore
 		configMap[key] = value;
 	});
 
@@ -59,6 +60,7 @@ async function run() {
 		let hasChange = false;
 
 		for (const k in configMap) {
+			// @ts-ignore
 			if (existingConfig[k] !== configMap[k]) {
 				hasChange = true;
 				break;

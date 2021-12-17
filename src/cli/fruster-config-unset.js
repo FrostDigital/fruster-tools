@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const { getConfig, setConfig, restartPods } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
@@ -20,10 +20,10 @@ $ fruster config unset BUS LOG_LEVEL -a api-gateway -n paceup
 	)
 	.parse(process.argv);
 
-const serviceName = program.app;
-let namespace = program.namespace;
+const serviceName = program.opts().app;
+let namespace = program.opts().namespace;
 const config = program.args;
-const noRestart = program.noRestart;
+const noRestart = program.opts().noRestart;
 
 validateRequiredArg(serviceName, program, "Missing app name");
 validateRequiredArg(config.length, program, "Missing config");

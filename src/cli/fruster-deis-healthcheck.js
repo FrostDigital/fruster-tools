@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const program = require("commander");
+const { program } = require("commander");
 
 program
 	.command("set <app>", "enable health check for app(s)")

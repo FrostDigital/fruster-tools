@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const { getReplicaSets } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg } = require("../utils/cli-utils");
@@ -22,8 +22,8 @@ $ fruster history -a api-gateway
 	.option("-a, --app <serviceName>", "name of service")
 	.parse(process.argv);
 
-const serviceName = program.app;
-let namespace = program.namespace;
+const serviceName = program.opts().app;
+let namespace = program.opts().namespace;
 
 validateRequiredArg(serviceName, program, "Missing app name");
 
@@ -34,7 +34,7 @@ async function run() {
 
 	const replicaSets = await getReplicaSets(namespace, serviceName);
 
-	const changeCauses = replicaSets
+	const changeCauses = (replicaSets || [])
 		.map((rs) => {
 			const image = rs.spec.template.spec.containers[0].image;
 			const [imageName, imageTag] = image.split(":");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const { getDeployment, getPods, getService } = require("../kube/kube-client");
 const { validateRequiredArg, getOrSelectNamespace, printTable } = require("../utils/cli-utils");
 const moment = require("moment");
@@ -22,8 +22,8 @@ $ fruster info -a api-gateway
 	.option("-a, --app <serviceName>", "name of service")
 	.parse(process.argv);
 
-const serviceName = program.app;
-let namespace = program.namespace;
+const serviceName = program.opts().app;
+let namespace = program.opts().namespace;
 
 validateRequiredArg(serviceName, program, "Missing app name");
 

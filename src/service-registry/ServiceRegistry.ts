@@ -29,7 +29,7 @@ class ServiceRegistry {
 					model.args || {},
 					options.passHostEnv
 				);
-				service.appName = service.name; // TODO: Why rename?
+				service.name = service.name; // TODO: Why rename?
 				service.livenessHealthCheck = service.livenessHealthCheck;
 
 				if (!service.imageTag && service.image) {
@@ -89,7 +89,7 @@ class ServiceRegistry {
 			services: this.services.map((service) => {
 				return {
 					name: service.name,
-					appName: service.appName,
+					appName: service.name,
 					repo: service.repo,
 					env: service.env,
 				};

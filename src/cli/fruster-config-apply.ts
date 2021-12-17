@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-const program = require("commander");
-const serviceRegistryFactory = require("../service-registry");
-const kubeClient = require("../kube/kube-client");
-const log = require("../log");
+import { program } from "commander";
+import { ServiceRegistryService } from "../models/ServiceRegistryModel";
+import { create } from "../service-registry/service-registry-factory";
+import ServiceRegistry from "../service-registry/ServiceRegistry";
+import * as kubeClient from "../kube/kube-client";
+import * as log from "../log";
 const { validateRequiredArg, getUsername } = require("../utils/cli-utils");
 const { patchDeploymentWithConfigHash } = require("../utils/config-utils");
 const moment = require("moment");
@@ -44,18 +46,18 @@ $ fruster config apply services.json -r -a api-gateway
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const dryRun = !program.yes;
-const serviceName = program.app;
-const namespaceArg = program.namespace;
-const prune = program.prune;
-const createIfNonExisting = program.create;
-const recreateService = program.recreate;
+const dryRun = !program.getOptionValue("yes");
+const serviceName = program.getOptionValue("app");
+const namespaceArg = program.getOptionValue("namespace");
+const prune = program.getOptionValue("prune");
+const createIfNonExisting = program.getOptionValue("create");
+const recreateService = program.getOptionValue("recreate");
 
 validateRequiredArg(serviceRegPath, program, "Missing service registry path");
 
 async function run() {
 	try {
-		const serviceRegistry = await serviceRegistryFactory.create(serviceRegPath);
+		const serviceRegistry = await create(serviceRegPath);
 		const apps = serviceRegistry.getServices(serviceName || "*");
 		const namespace = namespaceArg || serviceRegistry.name;
 		const { appsToCreate, existingApps } = await getAppsToCreate(namespace, apps);
@@ -160,7 +162,7 @@ async function run() {
  * @param {string} namespace
  * @param {Array<any>} services
  */
-async function getAppsToCreate(namespace, services) {
+async function getAppsToCreate(namespace: string, services: ServiceRegistry["services"]) {
 	let existsCounter = 0;
 	let appsToCreate = [];
 	let existingApps = [];
@@ -194,11 +196,11 @@ async function getAppsToCreate(namespace, services) {
  * @param {any} existingConfig
  * @param {any} newConfig
  */
-function mergeConfig(name, existingConfig, newConfig) {
+function mergeConfig(name: string, existingConfig: any, newConfig: any) {
 	/**
 	 * @type {any}
 	 */
-	let mergedConfig = {};
+	let mergedConfig: any = {};
 	let upToDate = true;
 
 	for (const k in existingConfig) {
@@ -245,7 +247,12 @@ function mergeConfig(name, existingConfig, newConfig) {
  * @param {boolean=} removeKubeService
  * @param {string=} changeCause
  */
-async function createApp(namespace, service, removeKubeService = false, changeCause = "") {
+async function createApp(
+	namespace: string,
+	service: ServiceRegistryService,
+	removeKubeService = false,
+	changeCause = ""
+) {
 	// Upsert namespace
 	await kubeClient.createNamespace(service.name);
 	// Copy existing imagePullSecret from default namespace to new service namespace

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 
 program
@@ -25,6 +25,7 @@ deis.apps("*").then((apps) => {
 		process.exit(1);
 	}
 
+	// @ts-ignore
 	return deis.getConfigDeprecated(appToClone).then((config) => {
 		return deis.createApp(targetAppName).then(() => deis.setConfigDeprecated(targetAppName, config));
 	});

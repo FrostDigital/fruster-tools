@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const { deleteDeployment, deleteSecret, deleteService } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg } = require("../utils/cli-utils");
@@ -20,8 +20,8 @@ $ fruster destroy -a api-gateway -n foo
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
 	.parse(process.argv);
 
-const namespace = program.namespace;
-const app = program.app;
+const namespace = program.opts().namespace;
+const app = program.opts().app;
 
 validateRequiredArg(app, program, "Missing app name");
 validateRequiredArg(namespace, program, "Namespace is required when destroying an app");

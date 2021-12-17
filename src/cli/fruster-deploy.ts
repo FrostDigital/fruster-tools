@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-
-const program = require("commander");
-const { getDeployment, patchDeployment, getPods } = require("../kube/kube-client");
+import { program } from "commander";
+import { getDeployment, patchDeployment, getPods } from "../kube/kube-client";
 const { validateRequiredArg, getOrSelectNamespace, getUsername } = require("../utils/cli-utils");
 const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
 const log = require("../log");
@@ -10,7 +9,7 @@ const { sleep } = require("../utils/cli-utils");
 program
 	.description(
 		`
-Deploy a new image tag/version.
+Deploy a new tag/version of an existing app.
 
 Example:
 
@@ -23,10 +22,10 @@ $ fruster deploy 1.0.1 -a api-gateway
 	.option("--skip-verify", "skips verification that new tag was deployed")
 	.parse(process.argv);
 
-const serviceName = program.app;
-const imageTag = program.tag;
-let namespace = program.namespace;
-const skipVerify = program.skipVerify;
+const serviceName = program.getOptionValue("app");
+const imageTag = program.getOptionValue("tag");
+let namespace = program.getOptionValue("namespace");
+const skipVerify = program.getOptionValue("skipVerify");
 
 validateRequiredArg(serviceName, program, "Missing app name");
 validateRequiredArg(imageTag, program, "Missing image tag");
@@ -61,14 +60,14 @@ async function run() {
 	log.info(`Image tag/version changed ${existingImageTag} -> ${imageTag}`);
 
 	if (!skipVerify) {
-		log.info(`\nVeryfing deploy...`);
+		log.info(`\nVerifying deploy...`);
 
 		const numAttempts = 20;
 
 		for (let i = 1; i <= numAttempts; i++) {
 			const pods = await getPods(namespace, serviceName);
 
-			const pod = pods.find((pod) => {
+			const pod = pods.find((pod: any) => {
 				return pod.spec.containers[0].image === newImage;
 			});
 

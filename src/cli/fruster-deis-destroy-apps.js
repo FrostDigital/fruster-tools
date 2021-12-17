@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 const serviceRegistryFactory = require("../service-registry");
 const log = require("../log");
@@ -22,8 +22,8 @@ $ fruster destroy-apps frostdigital/paceup
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const dryRun = program.dryRun;
-const environment = program.environment;
+const dryRun = program.opts().dryRun;
+const environment = program.opts().environment;
 
 if (!serviceRegPath) {
 	console.log("Missing service registry path");
@@ -37,20 +37,20 @@ serviceRegistryFactory
 			return Promise.mapSeries(serviceRegistry.services, (service) => {
 				let promise = Promise.resolve();
 
-				if (apps.find((app) => app.id == service.appName)) {
-					log.info(`[${service.appName}] Destroying app...`);
+				if (apps.find((app) => app.id == service.name)) {
+					log.info(`[${service.name}] Destroying app...`);
 
 					if (!dryRun) {
 						promise
-							.then(() => deis.deleteApp(service.appName))
+							.then(() => deis.deleteApp(service.name))
 							.catch((err) => {
-								log.error(`Failed destroying app ${service.appName}`);
+								log.error(`Failed destroying app ${service.name}`);
 								console.log(err);
 								throw err;
 							});
 					}
 				} else {
-					log.info(`[${service.appName}] Already destroyed`);
+					log.info(`[${service.name}] Already destroyed`);
 				}
 
 				return promise;

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const program = require("commander");
+const { program } = require("commander");
 
 program
 	.command("set <config...>", "set config on app(s)")

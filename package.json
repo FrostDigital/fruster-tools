@@ -3,15 +3,15 @@
 	"version": "0.2.0",
 	"scripts": {
 		"test": "ts-node ./spec/support/jasmine-runner.js",
-		"build": "rimraf ./dist/ && tsc -p ./tsconfig.dist.json"
+		"build": "rimraf --no-glob ./dist/ && tsc -p ./tsconfig.dist.json"
 	},
 	"bin": {
-		"fruster": "./cli/fruster.js"
+		"fruster": "./dist/cli/fruster.js"
 	},
 	"dependencies": {
 		"ajv": "^6.10.2",
-		"bluebird": "^3.5.1",
-		"commander": "4.0.1",
+		"bluebird": "^3.7.2",
+		"commander": "8.3.0",
 		"deepmerge": "^4.2.2",
 		"dockerode": "^2.5.5",
 		"es6-template-strings": "^2.0.1",

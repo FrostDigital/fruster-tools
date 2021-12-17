@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 const serviceRegistryFactory = require("../service-registry");
 const log = require("../log");
@@ -27,11 +27,11 @@ $ fruster config apply frostdigital/paceup
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const createApps = program.createApps;
-const dryRun = !program.yes;
-const prune = program.prune;
-const passEnv = program.passHostEnv;
-const addHealthcheck = program.addHealthcheck;
+const createApps = program.opts().createApps;
+const dryRun = !program.opts().yes;
+const prune = program.opts().prune;
+const passEnv = program.opts().passHostEnv;
+const addHealthcheck = program.opts().addHealthcheck;
 
 if (!serviceRegPath) {
 	console.log("Missing service registry path");
@@ -47,17 +47,15 @@ serviceRegistryFactory
 				return Promise.mapSeries(serviceRegistry.services, (service) => {
 					let promise = Promise.resolve();
 
-					if (!apps.find((app) => app.id == service.appName)) {
+					if (!apps.find((app) => app.id == service.name)) {
 						if (createApps) {
-							console.log(`[${service.appName}] Creating app ...`);
+							console.log(`[${service.name}] Creating app ...`);
 
 							if (!dryRun) {
-								promise.then(() => deis.createApp(service.appName));
+								promise.then(() => deis.createApp(service.name));
 							}
 						} else {
-							log.warn(
-								`Service ${service.appName} does not exist in deis, skipping config of this service`
-							);
+							log.warn(`Service ${service.name} does not exist in deis, skipping config of this service`);
 							// @ts-ignore
 							service.skip = true;
 						}
@@ -70,9 +68,9 @@ serviceRegistryFactory
 				// @ts-ignore
 				let services = serviceRegistry.services.filter((service) => !service.skip);
 
-				if (program.print) {
+				if (program.opts().print) {
 					services.forEach((service) => {
-						console.log(service.appName);
+						console.log(service.name);
 
 						Object.keys(service.env)
 							.sort()
@@ -85,7 +83,8 @@ serviceRegistryFactory
 				}
 
 				let changeSetPromises = services.map((service) => {
-					return deis.getConfig(service.appName).then((existingConfig) => {
+					// @ts-ignore
+					return deis.getConfig(service.name).then((existingConfig) => {
 						let changeSet = {
 							values: {},
 							healthcheck: undefined,
@@ -95,31 +94,35 @@ serviceRegistryFactory
 							if (service.env[k] === undefined) {
 								if (prune) {
 									log.warn(
-										`[${service.appName}] Will remove ${k} (value was "${existingConfig.values[k]}")`
+										`[${service.name}] Will remove ${k} (value was "${existingConfig.values[k]}")`
 									);
+									// @ts-ignore
 									changeSet.values[k] = null;
 								} else {
 									log.warn(
-										`[${service.appName}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig.values[k]}"`
+										`[${service.name}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig.values[k]}"`
 									);
 								}
 							} else if (existingConfig.values[k] != service.env[k]) {
 								console.log(
-									`[${service.appName}] Updating ${k} ${existingConfig.values[k]} -> ${service.env[k]}`
+									`[${service.name}] Updating ${k} ${existingConfig.values[k]} -> ${service.env[k]}`
 								);
+								// @ts-ignore
 								changeSet.values[k] = service.env[k];
 							}
 						}
 
 						for (let k in service.env) {
 							if (existingConfig.values[k] === undefined) {
-								console.log(`[${service.appName}] New config ${k}=${service.env[k]}`);
+								console.log(`[${service.name}] New config ${k}=${service.env[k]}`);
+								// @ts-ignore
 								changeSet.values[k] = service.env[k];
 							}
 						}
 
 						if (!Object.keys(changeSet.values).length) {
-							log.success(`[${service.appName}] up to date`);
+							log.success(`[${service.name}] up to date`);
+							// @ts-ignore
 							changeSet.values = undefined;
 						}
 
@@ -129,9 +132,10 @@ serviceRegistryFactory
 								Object.keys(existingConfig.healthcheck).length === 0 ||
 								Object.keys(existingConfig.healthcheck["web/cmd"]).length === 0
 							) {
-								console.log(`[${service.appName}] Enabling healthcheck`);
+								console.log(`[${service.name}] Enabling healthcheck`);
 
 								if (!dryRun) {
+									// @ts-ignore
 									changeSet.healthcheck = {
 										"web/cmd": {
 											livenessProbe: {
@@ -152,7 +156,7 @@ serviceRegistryFactory
 
 						return Promise.resolve({
 							changeSet: changeSet,
-							serviceName: service.appName,
+							serviceName: service.name,
 						});
 					});
 				});
@@ -160,16 +164,19 @@ serviceRegistryFactory
 				return Promise.all(changeSetPromises).mapSeries((changeSet) => {
 					if (!dryRun && (changeSet.changeSet.values || changeSet.changeSet.healthcheck)) {
 						console.log(`[${changeSet.serviceName}] Updating config...`);
-						return deis
-							.setConfig(changeSet.serviceName, changeSet.changeSet)
-							.then(() => {
-								log.success(`[${changeSet.serviceName}] Done updating`);
-							})
-							.catch((err) => {
-								log.error(
-									`[${changeSet.serviceName}] got error while updating config:\n${err.message}`
-								);
-							});
+						return (
+							deis
+								.setConfig(changeSet.serviceName, changeSet.changeSet)
+								.then(() => {
+									log.success(`[${changeSet.serviceName}] Done updating`);
+								})
+								// @ts-ignore
+								.catch((err) => {
+									log.error(
+										`[${changeSet.serviceName}] got error while updating config:\n${err.message}`
+									);
+								})
+						);
 					}
 				});
 			})

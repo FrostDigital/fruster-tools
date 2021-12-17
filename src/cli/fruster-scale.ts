@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-
-const program = require("commander");
-const { scaleDeployment, getPods } = require("../kube/kube-client");
-const log = require("../log");
+import { program } from "commander";
+import { scaleDeployment, getPods } from "../kube/kube-client";
+import * as log from "../log";
 const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
 
 program
@@ -20,9 +19,9 @@ $ fruster scale -r 2 -a api-gateway
 	.option("-a, --app <serviceName>", "name of service")
 	.parse(process.argv);
 
-const replicas = program.replicas;
-const serviceName = program.app;
-let namespace = program.namespace;
+const replicas = program.getOptionValue("replicas");
+const serviceName = program.getOptionValue("app");
+let namespace = program.getOptionValue("namespace");
 
 validateRequiredArg(serviceName, program, "Missing app name");
 validateRequiredArg(replicas, program, "Missing number of replicas");

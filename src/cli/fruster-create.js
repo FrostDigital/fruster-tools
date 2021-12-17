@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const serviceRegistryFactory = require("../service-registry");
 const { createDeployment, createService, createNamespace, copySecret, setConfig } = require("../kube/kube-client");
 const log = require("../log");
@@ -28,9 +28,9 @@ $ fruster create services.json -a ag-*
 	.parse(process.argv);
 
 const serviceRegPath = program.args[0];
-const dryRun = !program.yes;
-const app = program.app;
-const namespace = program.namespace;
+const dryRun = !program.opts().yes;
+const app = program.opts().app;
+const namespace = program.opts().namespace;
 
 validateRequiredArg(serviceRegPath, program, "Missing service registry path");
 validateRequiredArg(namespace, program, "Missing namespace");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const { program } = require("commander");
 const deis = require("../deis");
 
 program
@@ -18,12 +18,13 @@ $ fruster config get -a "ag*"
 	.option("-a, --app <app name>", "Application name or pattern with wildcard")
 	.parse(process.argv);
 
-const appName = program.app;
+const appName = program.opts().app;
 
 deis.apps(appName)
 	.then((apps) => {
 		return Promise.all(
 			apps.map((app) =>
+				// @ts-ignore
 				deis.getConfigDeprecated(app.id).then((config) => {
 					return {
 						config: config,

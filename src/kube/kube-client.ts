@@ -1,7 +1,8 @@
 import { Client1_13 } from "kubernetes-client";
 import { kubeClientVersion } from "../conf";
-const { deployment, namespace, secret, service, deploymentScale } = require("./kube-templates");
-const log = require("../log");
+import { deployment, namespace, secret, service, deploymentScale } from "./kube-templates";
+import * as log from "../log";
+import { ServiceRegistryService } from "../models/ServiceRegistryModel";
 
 const client = new Client1_13({ version: kubeClientVersion });
 
@@ -88,11 +89,15 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 
 export const createDeployment = async (
 	namespace: string,
-	serviceConfig: any,
+	serviceConfig: ServiceRegistryService,
 	changeCause: string,
 	imagePullSecret?: string
 ) => {
 	const existingDeployment = await getDeployment(namespace, serviceConfig.name);
+
+	if (!serviceConfig.image) {
+		throw new Error("Missing image");
+	}
 
 	const deploymentManifest = deployment({
 		namespace,
@@ -326,7 +331,7 @@ export const restartPods = async (namespace: string, serviceName: string, rollin
  * @param {string?} namespace
  * @param {string?} serviceName
  */
-export const getPods = async (namespace: string, serviceName: string) => {
+export const getPods = async (namespace: string, serviceName: string): Promise<any[]> => {
 	try {
 		const query = serviceName ? { qs: { labelSelector: "app=" + serviceName } } : {};
 		let res;
@@ -340,11 +345,12 @@ export const getPods = async (namespace: string, serviceName: string) => {
 		return res.body.items;
 	} catch (err: any) {
 		if (err.code !== 404) throw err;
-		return null;
+		return [];
 	}
 };
 
 export const scaleDeployment = async (namespace: string, serviceName: string, replicas: number) => {
+	console.log(111, namespace, serviceName, replicas);
 	try {
 		await client.apis.apps.v1beta2
 			.namespaces(namespace)
@@ -393,7 +399,7 @@ export const getLogs = async (namespace: string, podName: string, tailLines = 10
 	}
 };
 
-export const getReplicaSets = async (namespace: string, serviceName?: string) => {
+export const getReplicaSets = async (namespace: string, serviceName?: string): Promise<any[] | null> => {
 	try {
 		const query = serviceName ? { qs: { labelSelector: "app=" + serviceName } } : {};
 		const { body } = await client.apis.apps.v1beta2.namespace(namespace).replicasets.get(query);

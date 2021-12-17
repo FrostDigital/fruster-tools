@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import program from "commander";
+import { program } from "commander";
 const { getDeployments } = require("../kube/kube-client");
 const log = require("../log");
 const { printTable } = require("../utils/cli-utils");
@@ -19,13 +19,13 @@ $ fruster apps
 	.option("-n, --namespace <namespace>", "filter by kubernetes namespace")
 	.parse(process.argv);
 
-const namespace = program.namespace;
+const namespace = program.getOptionValue("namespace");
 
 async function run() {
 	try {
 		const deployments = await getDeployments(namespace);
 
-		const tableData = deployments.items.map((item) => {
+		const tableData = deployments.items.map((item: any) => {
 			return [
 				item.metadata.name,
 				item.metadata.namespace,

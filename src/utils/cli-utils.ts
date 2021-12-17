@@ -1,16 +1,11 @@
-const log = require("../log");
+import * as log from "../log";
 const { table, getBorderCharacters } = require("table");
-const { getNamespaceForApp } = require("../kube/kube-client");
+import { getNamespaceForApp } from "../kube/kube-client";
 const inquirer = require("inquirer");
 const username = require("username");
+import { Command } from "commander";
 
-/**
- *
- * @param {any} argument
- * @param {*} program
- * @param {string} errorMsg
- */
-function validateRequiredArg(argument, program, errorMsg) {
+export function validateRequiredArg(argument: string | number, program: Command, errorMsg: string) {
 	if (!argument) {
 		log.error(errorMsg);
 		program.outputHelp();
@@ -18,12 +13,7 @@ function validateRequiredArg(argument, program, errorMsg) {
 	}
 }
 
-/**
- *
- * @param {string[][]} rows
- * @param {string[]|null} header
- */
-function printTable(rows, header = null) {
+export function printTable(rows: string[][], header?: string[]) {
 	if (header) {
 		rows = [header, ...rows];
 	}
@@ -36,17 +26,13 @@ function printTable(rows, header = null) {
 			},
 			columnDefault: {
 				paddingLeft: 0,
-				paddingRight: 3
-			}
+				paddingRight: 3,
+			},
 		})
 	);
 }
 
-/**
- *
- * @param {string} appName
- */
-async function getOrSelectNamespace(appName) {
+export async function getOrSelectNamespace(appName: string) {
 	const namespaces = await getNamespaceForApp(appName);
 
 	if (!namespaces.length) {
@@ -61,35 +47,23 @@ async function getOrSelectNamespace(appName) {
 			{
 				type: "list",
 				name: "podName",
-				choices: namespaces.map(namespace => {
+				choices: namespaces.map((namespace: string) => {
 					return {
-						value: namespace
+						value: namespace,
 					};
 				}),
-				message: "App existists in multiple namespaces, select namespace"
-			}
+				message: "App exists in multiple namespaces, select namespace",
+			},
 		]);
 
 		return namespace;
 	}
 }
 
-/**
- *
- * @param {number} ms
- */
-function sleep(ms) {
-	return new Promise(resolve => setTimeout(resolve, ms));
+export function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getUsername() {
+export async function getUsername() {
 	return username();
 }
-
-module.exports = {
-	validateRequiredArg,
-	printTable,
-	getOrSelectNamespace,
-	getUsername,
-	sleep
-};

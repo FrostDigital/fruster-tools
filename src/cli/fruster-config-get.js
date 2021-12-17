@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const program = require("commander");
+const program = require("commander").program;
 const { getConfig } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
@@ -20,8 +20,8 @@ $ fruster config get -a api-gateway -n paceup
 	)
 	.parse(process.argv);
 
-const app = program.app;
-let namespace = program.namespace;
+const app = program.opts().app;
+let namespace = program.opts().namespace;
 
 validateRequiredArg(app, program, "Missing app name");
 
