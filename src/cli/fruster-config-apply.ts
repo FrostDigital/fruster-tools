@@ -255,8 +255,12 @@ async function createApp(
 ) {
 	// Upsert namespace
 	await kubeClient.createNamespace(service.name);
+
 	// Copy existing imagePullSecret from default namespace to new service namespace
-	await kubeClient.copySecret(service.imagePullSecret || "regcred", "default", namespace);
+	if (service.imagePullSecret) {
+		await kubeClient.copySecret(service.imagePullSecret, "default", namespace);
+	}
+
 	// Upsert deployment
 	await kubeClient.createDeployment(namespace, service, changeCause);
 	// Create k8s service if routable

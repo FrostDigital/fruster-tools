@@ -18,6 +18,11 @@ export function printTable(rows: string[][], header?: string[]) {
 		rows = [header, ...rows];
 	}
 
+	if (!rows.length) {
+		// console.log("n/a");
+		return;
+	}
+
 	console.log(
 		table(rows, {
 			border: getBorderCharacters(`void`),

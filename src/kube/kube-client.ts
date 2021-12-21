@@ -90,8 +90,7 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 export const createDeployment = async (
 	namespace: string,
 	serviceConfig: ServiceRegistryService,
-	changeCause: string,
-	imagePullSecret?: string
+	changeCause: string
 ) => {
 	const existingDeployment = await getDeployment(namespace, serviceConfig.name);
 
@@ -102,7 +101,7 @@ export const createDeployment = async (
 	const deploymentManifest = deployment({
 		namespace,
 		appName: serviceConfig.name,
-		image: serviceConfig.image, //+ ":" + (serviceConfig.imageTag || "latest"),
+		image: serviceConfig.image,
 		imageTag: serviceConfig.imageTag,
 		// Use existing number of replicas in update of deployment
 		replicas: existingDeployment ? existingDeployment.spec.replicas : 1,
@@ -110,7 +109,7 @@ export const createDeployment = async (
 		resources: serviceConfig.resources,
 		livenessHealthCheckType: serviceConfig.livenessHealthCheck,
 		changeCause,
-		imagePullSecret,
+		imagePullSecret: serviceConfig.imagePullSecret,
 	});
 
 	try {
@@ -350,7 +349,6 @@ export const getPods = async (namespace: string, serviceName: string): Promise<a
 };
 
 export const scaleDeployment = async (namespace: string, serviceName: string, replicas: number) => {
-	console.log(111, namespace, serviceName, replicas);
 	try {
 		await client.apis.apps.v1beta2
 			.namespaces(namespace)
@@ -404,6 +402,16 @@ export const getReplicaSets = async (namespace: string, serviceName?: string): P
 		const query = serviceName ? { qs: { labelSelector: "app=" + serviceName } } : {};
 		const { body } = await client.apis.apps.v1beta2.namespace(namespace).replicasets.get(query);
 
+		return body.items;
+	} catch (err: any) {
+		if (err.code !== 404) throw err;
+		return null;
+	}
+};
+
+export const getSecrets = async (namespace: string): Promise<any[] | null> => {
+	try {
+		const { body } = await client.api.v1.namespace(namespace).secrets.get({});
 		return body.items;
 	} catch (err: any) {
 		if (err.code !== 404) throw err;

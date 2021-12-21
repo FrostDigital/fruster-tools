@@ -6,8 +6,8 @@ program
 	.version("0.0.1")
 	.command("apps", "list apps/services")
 	.command("config", "set/unset/get config for app(s)")
-	.command("create", "create deis apps defined in service registry")
-	.command("deploy", "deploy new tag")
+	.command("create", "create a single apps or multiple apps defined in service registry")
+	.command("deploy", "deploy new image tag")
 	.command("history", "show release history for an app")
 	.alias("releases")
 	.command("info", "show info about an app")
@@ -15,6 +15,7 @@ program
 	.command("restart", "restart an app")
 	.command("scale", "scale number of replicas of a deployment")
 	.command("destroy", "removes an app")
+	.alias("delete")
 	.command("deis", "deprecated ")
 	.alias("d")
 	.parse(process.argv);

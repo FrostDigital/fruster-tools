@@ -34,7 +34,7 @@ async function run() {
 			];
 		});
 
-		printTable(tableData);
+		printTable(tableData, ["Name", "Namespace", "Running", ""]);
 
 		log.info(`${tableData.length} app(s)`);
 	} catch (err) {

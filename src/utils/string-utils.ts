@@ -30,3 +30,29 @@ export const isSemver = (str: string) => {
 		str
 	);
 };
+
+const re = /(\S*?)=(\S*)|\"(.*)\"/g;
+
+export const parseStringConfigToObj = (str: string) => {
+	str = str.trim();
+
+	if (!str) {
+		return {};
+	}
+
+	const matches = Array.from(str.matchAll(re));
+
+	let out: any = {};
+
+	for (let [_, key, val] of matches) {
+		// Strip ""
+
+		if (val.indexOf('"') === 0 && val.lastIndexOf('"') === val.length - 1) {
+			val = val.substring(1, val.length - 1);
+		}
+
+		out[key] = val;
+	}
+
+	return out;
+};
