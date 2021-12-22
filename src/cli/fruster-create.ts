@@ -2,20 +2,17 @@
 
 import { program } from "commander";
 import inquirer from "inquirer";
-import { listRepos, listTags } from "../docker/DockerRegistryClient";
-import {
-	createDeployment,
-	createNamespace,
-	createService,
-	getDeployment,
-	getPods,
-	getSecrets,
-	setConfig,
-} from "../kube/kube-client";
+import * as dockerRegistryClient from "../docker/DockerRegistryClient";
+import { createDeployment, createNamespace, createService, getPods, getSecrets, setConfig } from "../kube/kube-client";
 import * as log from "../log";
 import { create } from "../service-registry";
-import { parseStringConfigToObj } from "../utils";
+import { parseStringConfigToObj, prettyPrintPods } from "../utils";
+import * as dockerHubClient from "../docker/DockerHubClient";
+import inquirerAutocompletePrompt from "inquirer-autocomplete-prompt";
+
 const { getUsername } = require("../utils/cli-utils");
+
+inquirer.registerPrompt("autocomplete", inquirerAutocompletePrompt);
 
 program
 	.description(
@@ -44,6 +41,8 @@ const dryRun = !program.opts().yes;
 const serviceRegPath = program.opts().serviceRegistry;
 const namespace = program.opts().namespace;
 const app = program.opts().app;
+
+const FRUSTER_PUBLIC_OPTION = "fruster (docker hub)";
 
 async function run() {
 	if (!app && !serviceRegPath) {
@@ -124,6 +123,10 @@ async function run() {
 
 		const registries = await getDockerRegistries(namespace);
 
+		let registryUrl: string;
+
+		let fetchedRepos: string[];
+
 		const { publicImage, routable, domains, healthCheckType, config, repo, tag, registry } = await inquirer.prompt<{
 			publicImage?: string;
 			routable: boolean;
@@ -138,12 +141,12 @@ async function run() {
 				type: "list",
 				name: "registry",
 				message: "Choose docker registry",
-				choices: ["Any public registry", ...registries.map((r) => r.registryHost)],
+				choices: [FRUSTER_PUBLIC_OPTION, ...registries.map((r) => r.registryHost), "Other"],
 			},
 			{
 				type: "input",
 				name: "publicImage",
-				when: (answers) => answers.registry === "Any public registry",
+				when: (answers) => answers.registry === "Other",
 				message: `Enter image to deploy including tag`,
 				validate: (input: string) => {
 					if (input.indexOf(":") === -1) {
@@ -153,17 +156,28 @@ async function run() {
 				},
 			},
 			{
-				type: "list",
+				type: "autocomplete",
 				name: "repo",
-				when: (answers) => answers.registry !== "Any public registry",
+				when: (answers) => answers.registry !== "Other",
 				message: (answers) => `Choose repo from ${answers.registry}`,
-				choices: async (answers) => {
-					const selectedRegistryAuth = registries.find((r) => r.registryHost === answers.registry);
-					const repos = await listRepos(
-						selectedRegistryAuth?.dockerAuthToken as string,
-						"https://" + answers.registry
-					);
-					return repos;
+				source: async (answers: any, input: string) => {
+					if (!fetchedRepos) {
+						registryUrl =
+							answers.registry === FRUSTER_PUBLIC_OPTION
+								? "https://hub.docker.com"
+								: "https://" + answers.registry;
+						if (answers.registry === FRUSTER_PUBLIC_OPTION) {
+							fetchedRepos = await dockerHubClient.listRepos("fruster");
+						} else {
+							const selectedRegistryAuth = registries.find((r) => r.registryHost === answers.registry);
+							fetchedRepos = await dockerRegistryClient.listRepos(
+								selectedRegistryAuth?.dockerAuthToken as string,
+								registryUrl
+							);
+						}
+					}
+
+					return (input || "").trim() ? fetchedRepos.filter((r) => r.includes(input.trim())) : fetchedRepos;
 				},
 			},
 			{
@@ -172,20 +186,19 @@ async function run() {
 				when: (answers) => answers.registry !== "Any public registry",
 				message: (answers) => `Choose tag from ${answers.repo}`,
 				choices: async (answers) => {
-					const selectedRegistryAuth = registries.find((r) => r.registryHost === answers.registry);
-					const tags = await listTags(
-						selectedRegistryAuth?.dockerAuthToken as string,
-						"https://" + answers.registry,
-						answers.repo as string
-					);
-					return tags;
+					if (answers.registry === FRUSTER_PUBLIC_OPTION) {
+						return dockerHubClient.listTags("fruster", answers.repo as string);
+					} else {
+						const selectedRegistryAuth = registries.find((r) => r.registryHost === answers.registry);
+						return await dockerRegistryClient.listTags(
+							selectedRegistryAuth?.dockerAuthToken as string,
+							registryUrl,
+							answers.repo as string
+						);
+					}
 				},
 			},
-			{
-				type: "input",
-				name: "config",
-				message: `Enter env config (example FOO=val BAR=val)`,
-			},
+
 			{
 				type: "confirm",
 				name: "routable",
@@ -214,6 +227,14 @@ async function run() {
 				},
 			},
 			{
+				type: "input",
+				name: "config",
+				message: (answers) =>
+					`Enter env config for example FOO=val BAR=val${
+						answers.routable ? " (routable apps requires PORT)" : ""
+					}`,
+			},
+			{
 				type: "list",
 				name: "healthCheckType",
 				message: "Select type of liveness check",
@@ -233,6 +254,9 @@ async function run() {
 			const [repoPart, tagPart] = publicImage.split(":");
 			imageToDeploy = repoPart;
 			tagToDeploy = tagPart;
+		} else if (registry === FRUSTER_PUBLIC_OPTION && tag) {
+			imageToDeploy = "fruster/" + repo;
+			tagToDeploy = tag;
 		} else if (repo && tag) {
 			imageToDeploy = registry + "/" + repo;
 			tagToDeploy = tag;
@@ -267,20 +291,17 @@ async function run() {
 			log.info("Service is routable, making sure that service exists...");
 
 			const trimmedDomains = (domains as string).split(",").map((d) => d.trim());
-			const created = await createService(namespace, { name: app, domains: trimmedDomains, env: {} });
+			const created = await createService(namespace, { name: app, domains: trimmedDomains, env: parsedConfig });
 			log.success(`Service ${created ? "was created" : "already exists"}`);
 		}
 
-		log.success("Deployment instructions was successfully delivered to k8s");
+		log.success("\nDeployment instructions was successfully delivered to k8s\n");
 
 		await wait(2500);
 
 		const pods = await getPods(namespace, app);
 
-		for (const pod of pods) {
-			const [lastContainerStatus] = pod.status.containerStatuses;
-			log.info(`Pod ${pod.metadata.name} status: ${JSON.stringify(lastContainerStatus)}`);
-		}
+		prettyPrintPods(pods);
 	}
 }
 

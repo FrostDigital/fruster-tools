@@ -1,3 +1,7 @@
+import moment from "moment";
+import { printTable } from "./cli-utils";
+import * as log from "../log";
+
 export const matchPattern = (str: string, pattern = "") => {
 	if (pattern.indexOf("*") > -1) {
 		return new RegExp("^" + pattern.split("*").join(".*") + "$").test(str);
@@ -56,3 +60,36 @@ export const parseStringConfigToObj = (str: string) => {
 
 	return out;
 };
+
+export function prettyPrintPods(pods: any[]) {
+	const podInfo = pods.map((pod: any, i: number) => {
+		const [lastContainerStatus] = pod.status.containerStatuses;
+		const { imageName, imageTag } = parseImage(pod.spec.containers[0].image);
+		const { state } = lastContainerStatus;
+
+		let containerStatusDescription = " ";
+		let since = " ";
+
+		if (state.waiting && ["ImagePullBackOff", "ErrImagePull"].includes(state.waiting.reason)) {
+			containerStatusDescription = `Failed to pull image ${imageName}:${imageTag}`;
+		} else if (state.running) {
+			containerStatusDescription = `✅`;
+
+			since = moment(state.running.startedAt).fromNow().replace("minutes", "min");
+		} else if (state.terminated) {
+			containerStatusDescription = `💥`;
+
+			since = moment(state.terminated.startedAt).fromNow().replace("minutes", "min");
+		} else {
+			containerStatusDescription = JSON.stringify(state);
+		}
+
+		return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, since, containerStatusDescription];
+	});
+
+	if (podInfo.length) {
+		printTable(podInfo);
+	} else {
+		log.warn("App has no pods");
+	}
+}
