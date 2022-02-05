@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import { getDeployment, patchDeployment, getPods } from "../kube/kube-client";
-const { validateRequiredArg, getOrSelectNamespace, getUsername } = require("../utils/cli-utils");
-const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
-const log = require("../log");
-const { sleep } = require("../utils/cli-utils");
+import { updateImage } from "../actions/update-image";
+import { validateRequiredArg, getOrSelectNamespace } from "../utils/cli-utils";
 
 program
 	.description(
@@ -35,65 +32,7 @@ async function run() {
 		namespace = await getOrSelectNamespace(serviceName);
 	}
 
-	const deployment = await getDeployment(namespace, serviceName);
-	const [existingImage, existingImageTag] = deployment.spec.template.spec.containers[0].image.split(":");
-	const newImage = `${existingImage}:${imageTag}`;
-	const username = await getUsername();
-
-	await patchDeployment(namespace, serviceName, {
-		body: {
-			metadata: {
-				annotations: {
-					[CHANGE_CAUSE_ANNOTATION]: `${username} changed image version ${existingImageTag} -> ${imageTag}`,
-				},
-			},
-			spec: {
-				template: {
-					spec: {
-						containers: [{ name: serviceName, image: newImage }],
-					},
-				},
-			},
-		},
-	});
-
-	log.info(`Image tag/version changed ${existingImageTag} -> ${imageTag}`);
-
-	if (!skipVerify) {
-		log.info(`\nVerifying deploy...`);
-
-		const numAttempts = 20;
-
-		for (let i = 1; i <= numAttempts; i++) {
-			const pods = await getPods(namespace, serviceName);
-
-			const pod = pods.find((pod: any) => {
-				return pod.spec.containers[0].image === newImage;
-			});
-
-			const attemptPrefix = `\nAttempt ${i}/${numAttempts}:`;
-
-			if (!pod) {
-				log.info(`${attemptPrefix} Did not find any pod with image ${newImage}...`);
-			} else if (pod.status.phase === "Running") {
-				log.success(`${attemptPrefix} ✅ Pod with image ${newImage} is running`);
-				process.exit(0);
-			} else {
-				log.info(`${attemptPrefix} Found pod with image ${newImage} but has status '${pod.status.phase}'...`);
-
-				const { waiting } = pod.status.containerStatuses[0].state;
-
-				if (waiting) {
-					log.info(`${waiting.reason} ${waiting.message || ""}`);
-				}
-			}
-
-			await sleep(2000);
-		}
-
-		log.error(`\nFailed to verify that app with image ${newImage} was deployed`);
-		process.exit(1);
-	}
+	await updateImage(serviceName, namespace, imageTag, !skipVerify);
 }
 
 run();

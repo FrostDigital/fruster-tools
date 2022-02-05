@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { program } = require("commander");
-const { deleteDeployment, deleteSecret, deleteService } = require("../kube/kube-client");
+const { deleteDeployment, deleteSecret, deleteService, deleteReplicaSet } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg } = require("../utils/cli-utils");
 const inquirer = require("inquirer");
@@ -42,6 +42,8 @@ async function run() {
 			log.info("Removed deployment");
 			await deleteSecret(namespace, app + "-config");
 			log.info("Removed config");
+			await deleteReplicaSet(namespace, app);
+			log.info("Removed replica set");
 			if (await deleteService(namespace, app)) {
 				log.info("Removed service");
 			}

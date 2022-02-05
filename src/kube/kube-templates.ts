@@ -1,3 +1,5 @@
+import { Deployment } from "../models/Deployment";
+
 const {
 	FRUSTER_LIVENESS_ANNOTATION,
 	ROUTABLE_ANNOTATION,
@@ -31,7 +33,7 @@ export function deployment({
 	livenessHealthCheckType?: string;
 	changeCause?: string;
 	imagePullSecret?: string;
-}) {
+}): Deployment {
 	const [memReq, memLimit] = (resources.mem || DEFAULT_MEM_RESOURCES).split("/");
 	const [cpuReq, cpuLimit] = (resources.cpu || DEFAULT_CPU_RESOURCES).split("/");
 
@@ -215,7 +217,7 @@ export function service(namespace: string, serviceName: string, targetPort: numb
 export function deploymentScale(namespace: string, serviceName: string, replicas: number | string) {
 	return {
 		kind: "Scale",
-		apiVersion: "apps/v1beta2",
+		apiVersion: "apps/v1",
 		metadata: {
 			name: serviceName,
 			namespace,

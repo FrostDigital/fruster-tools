@@ -51,6 +51,7 @@ async function run() {
 	}
 
 	const logLines = await getLogs(namespace, podName, tail || 100);
+
 	console.log(logLines);
 }
 

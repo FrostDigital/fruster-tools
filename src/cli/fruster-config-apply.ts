@@ -262,7 +262,7 @@ async function createApp(
 	}
 
 	// Upsert deployment
-	await kubeClient.createDeployment(namespace, service, changeCause);
+	await kubeClient.createAppDeployment(namespace, service, changeCause);
 	// Create k8s service if routable
 	if (service.routable) {
 		await kubeClient.createService(namespace, service);

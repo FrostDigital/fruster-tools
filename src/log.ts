@@ -1,4 +1,4 @@
-const term = require("terminal-kit").terminal;
+import { terminal } from "terminal-kit";
 
 export const debug = (msg: string) => {
 	if (process.env.DEBUG) {
@@ -7,17 +7,17 @@ export const debug = (msg: string) => {
 };
 
 export const info = (msg: string) => {
-	term(`${msg}${msg.endsWith("\n") ? "" : "\n"}`);
+	terminal(`${msg}${msg.endsWith("\n") ? "" : "\n"}`);
 };
 
 export const warn = (msg: string) => {
-	term.brightYellow("WARNING: " + msg + "\n");
+	terminal.brightYellow("WARNING: " + msg + "\n");
 };
 
 export const error = (msg: string) => {
-	term.red("ERROR: " + msg + "\n");
+	terminal.red("ERROR: " + msg + "\n");
 };
 
 export const success = (msg: string) => {
-	term.green(msg + "\n");
+	terminal.green(msg + "\n");
 };

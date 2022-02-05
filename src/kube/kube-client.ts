@@ -1,12 +1,20 @@
 import { Client1_13 } from "kubernetes-client";
 import { kubeClientVersion } from "../conf";
-import { deployment, namespace, secret, service, deploymentScale } from "./kube-templates";
+import { deployment, namespace, secret, service } from "./kube-templates";
 import * as log from "../log";
 import { ServiceRegistryService } from "../models/ServiceRegistryModel";
+import { Namespace } from "../models/Namespace";
+import { ClusterRole } from "../models/ClusterRole";
+import { ClusterRoleBinding } from "../models/ClusterRoleBinding";
+import { ServiceAccount } from "../models/ServiceAccount";
+import { Deployment } from "../models/Deployment";
+import { Secret } from "../models/Secret";
 
 const client = new Client1_13({ version: kubeClientVersion });
 
 const ROLLING_RESTART_DELAY_SEC = 10;
+
+export const kubeClient = client;
 
 /**
  * Creates a namespace. Returns true if created, or false if it already exists.
@@ -54,7 +62,7 @@ export const getDeployment = async (namespace: string, name: string) => {
 	}
 };
 
-export const getDeployments = async (namespace?: string, app?: string) => {
+export const getDeployments = async (namespace?: string, app?: string): Promise<{ items: any[] }> => {
 	try {
 		const qs = { qs: { labelSelector: "fruster=true" } };
 
@@ -73,7 +81,7 @@ export const getDeployments = async (namespace?: string, app?: string) => {
 		return res.body;
 	} catch (err: any) {
 		if (err.code !== 404) throw err;
-		return null;
+		return { items: [] };
 	}
 };
 
@@ -87,7 +95,7 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 	}
 };
 
-export const createDeployment = async (
+export const createAppDeployment = async (
 	namespace: string,
 	serviceConfig: ServiceRegistryService,
 	changeCause: string
@@ -127,6 +135,15 @@ export const createDeployment = async (
 	}
 };
 
+export const createDeployment = async (namespace: string, body: Deployment) => {
+	try {
+		await client.apis.apps.v1.namespace(namespace).deployments.post({ body });
+		log.debug("Created deployment");
+	} catch (err: any) {
+		throw err;
+	}
+};
+
 export const patchDeployment = async (namespace: string, deploymentName: string, patch: any) => {
 	try {
 		await client.apis.apps.v1.namespace(namespace).deployments(deploymentName).patch(patch);
@@ -137,12 +154,23 @@ export const patchDeployment = async (namespace: string, deploymentName: string,
 	}
 };
 
-export const getSecret = async (name: string, namespace = "default") => {
+export const updateDeployment = async (namespace: string, deploymentName: string, update: any) => {
+	try {
+		await client.apis.apps.v1.namespace(namespace).deployments(deploymentName).put({ body: update });
+		log.debug("Updated deployment");
+	} catch (err: any) {
+		log.error("Failed to update deployment " + deploymentName);
+		console.log(err);
+	}
+};
+
+export const getSecret = async (name: string, namespace = "default"): Promise<Secret | null> => {
 	try {
 		const { body } = await client.api.v1.namespaces(namespace).secret(name).get();
 		return body;
 	} catch (err: any) {
-		return null;
+		if (err.code === 404) return null;
+		throw err;
 	}
 };
 
@@ -158,6 +186,15 @@ export const setConfig = async (namespace: string, serviceName: string, env: any
 		await client.api.v1.namespace(namespace).secret(newSecret.metadata.name).put({ body: newSecret });
 
 		log.debug(`Updated config for ${serviceName}`);
+	}
+};
+
+export const updateSecret = async (namespace: string, name: string, body: any) => {
+	try {
+		await client.api.v1.namespace(namespace).secret(name).put({ body });
+		log.debug(`Updated secret ${name} in namespace ${namespace}`);
+	} catch (err: any) {
+		console.error("Failed to update secret", err);
 	}
 };
 
@@ -181,7 +218,7 @@ export const getConfig = async (namespace: string, serviceName: string) => {
 	}
 };
 
-export const createSecret = async (namespace: string, secret: any) => {
+export const createSecret = async (namespace: string, secret: Secret) => {
 	secret.metadata.namespace = namespace;
 
 	try {
@@ -255,6 +292,17 @@ export const deleteService = async (namespace: string, name: string) => {
 	}
 };
 
+export const deleteReplicaSet = async (namespace: string, serviceName: string) => {
+	try {
+		const query = { qs: { labelSelector: "app=" + serviceName } };
+		await client.apis.app.v1.namespace(namespace).replicaset.get(query).delete();
+		return true;
+	} catch (err: any) {
+		log.debug("Failed deleting replicaset: " + serviceName);
+		return false;
+	}
+};
+
 export const copySecret = async (secretName: string, fromNamespace: string, toNamespace: string) => {
 	// image pull secret is needed if image is hosted in private registry
 	// the strategy is that the secret must already exist in the default namespace
@@ -286,9 +334,9 @@ export const copySecret = async (secretName: string, fromNamespace: string, toNa
 	return true;
 };
 
-export const restartPods = async (namespace: string, serviceName: string, rollingRestart: boolean) => {
+export const restartPods = async (namespace: string, appName: string, rollingRestart: boolean) => {
 	try {
-		const pods = filterNonTerminatedPods(await getPods(namespace, serviceName));
+		const pods = filterNonTerminatedPods(await getPods(namespace, appName));
 
 		if (rollingRestart) {
 			if (pods && pods.length > 1) {
@@ -328,11 +376,11 @@ export const restartPods = async (namespace: string, serviceName: string, rollin
 
 /**
  * @param {string?} namespace
- * @param {string?} serviceName
+ * @param {string?} appName
  */
-export const getPods = async (namespace: string, serviceName: string): Promise<any[]> => {
+export const getPods = async (namespace: string, appName: string): Promise<any[]> => {
 	try {
-		const query = serviceName ? { qs: { labelSelector: "app=" + serviceName } } : {};
+		const query = appName ? { qs: { labelSelector: "app=" + appName } } : {};
 		let res;
 
 		if (namespace) {
@@ -350,10 +398,13 @@ export const getPods = async (namespace: string, serviceName: string): Promise<a
 
 export const scaleDeployment = async (namespace: string, serviceName: string, replicas: number) => {
 	try {
-		await client.apis.apps.v1beta2
-			.namespaces(namespace)
-			.deployments(serviceName)
-			.scale.put({ body: deploymentScale(namespace, serviceName, replicas) });
+		await patchDeployment(namespace, serviceName, {
+			body: {
+				spec: {
+					replicas,
+				},
+			},
+		});
 		return true;
 	} catch (err: any) {
 		console.log(err);
@@ -400,7 +451,7 @@ export const getLogs = async (namespace: string, podName: string, tailLines = 10
 export const getReplicaSets = async (namespace: string, serviceName?: string): Promise<any[] | null> => {
 	try {
 		const query = serviceName ? { qs: { labelSelector: "app=" + serviceName } } : {};
-		const { body } = await client.apis.apps.v1beta2.namespace(namespace).replicasets.get(query);
+		const { body } = await client.apis.apps.v1.namespace(namespace).replicasets.get(query);
 
 		return body.items;
 	} catch (err: any) {
@@ -409,13 +460,88 @@ export const getReplicaSets = async (namespace: string, serviceName?: string): P
 	}
 };
 
-export const getSecrets = async (namespace: string): Promise<any[] | null> => {
+export const getSecrets = async (namespace?: string): Promise<any[] | null> => {
 	try {
-		const { body } = await client.api.v1.namespace(namespace).secrets.get({});
-		return body.items;
+		if (namespace) {
+			const { body } = await client.api.v1.namespace(namespace).secrets.get({});
+			return body.items;
+		} else {
+			const { body } = await client.api.v1.secrets.get({});
+			return body.items;
+		}
 	} catch (err: any) {
 		if (err.code !== 404) throw err;
 		return null;
+	}
+};
+
+export const getNamespaces = async (): Promise<Namespace[]> => {
+	try {
+		const { body } = await client.api.v1.namespaces.get();
+		return body.items;
+	} catch (err: any) {
+		throw err;
+	}
+};
+
+export const getClusterRole = async (name: string): Promise<ClusterRole | null> => {
+	try {
+		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrole(name).get();
+		return body;
+	} catch (err: any) {
+		if (err.code === 404) return null;
+		throw err;
+	}
+};
+
+export const getClusterRoleBinding = async (name: string): Promise<ClusterRoleBinding | null> => {
+	try {
+		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding(name).get();
+		return body;
+	} catch (err: any) {
+		if (err.code === 404) return null;
+
+		throw err;
+	}
+};
+
+export const createClusterRole = async (clusterRole: ClusterRole): Promise<ClusterRole> => {
+	try {
+		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrole.post({ body: clusterRole });
+		return body;
+	} catch (err: any) {
+		console.log(err);
+		throw err;
+	}
+};
+
+export const createClusterRoleBinding = async (clusterRoleBinding: ClusterRoleBinding): Promise<any> => {
+	try {
+		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding.post({
+			body: clusterRoleBinding,
+		});
+		return body;
+	} catch (err: any) {
+		throw err;
+	}
+};
+
+export const getServiceAccount = async (namespace: string, name: string): Promise<ServiceAccount | null> => {
+	try {
+		const { body } = await client.api.v1.namespace(namespace).serviceaccount(name).get();
+		return body;
+	} catch (err: any) {
+		if (err.code === 404) return null;
+		throw err;
+	}
+};
+
+export const createServiceAccount = async (namespace: string, serviceAccount: ServiceAccount): Promise<any> => {
+	try {
+		const { body } = await client.api.v1.namespace(namespace).serviceaccount.post({ body: serviceAccount });
+		return body;
+	} catch (err: any) {
+		throw err;
 	}
 };
 
@@ -450,3 +576,11 @@ function filterNonTerminatedPods(pods: any[]) {
 		return pod.status.containerStatuses && !pod.status.containerStatuses[0].state.terminated;
 	});
 }
+
+// export async function getClusterInfo() {
+// 	const conf = config.fromKubeconfig();
+
+// 	return {
+// 		clusterUrl: conf.url,
+// 	};
+// }

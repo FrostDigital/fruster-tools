@@ -1,5 +1,5 @@
-const crypto = require("crypto");
-const { patchDeployment } = require("../kube/kube-client");
+import crypto from "crypto";
+import { patchDeployment } from "../kube/kube-client";
 const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
 
 /**
@@ -12,7 +12,12 @@ const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
  * @param {any} config
  * @param {string} changeCause
  */
-async function patchDeploymentWithConfigHash(namespace, serviceName, config, changeCause) {
+export async function patchDeploymentWithConfigHash(
+	namespace: string,
+	serviceName: string,
+	config: { [x: string]: string },
+	changeCause: string
+) {
 	const configHash = crypto.createHash("sha256").update(JSON.stringify(config)).digest("hex");
 
 	await patchDeployment(namespace, serviceName, {
@@ -22,11 +27,24 @@ async function patchDeploymentWithConfigHash(namespace, serviceName, config, cha
 					[CHANGE_CAUSE_ANNOTATION]: changeCause,
 				},
 			},
-			spec: { template: { metadata: { annotations: { configHash } } } },
+			spec: {
+				template: {
+					metadata: { annotations: { configHash } },
+				},
+				containers: [
+					{
+						env: Object.keys(config).map((key) => ({
+							name: key,
+							valueFrom: {
+								secretKeyRef: {
+									key,
+									name: serviceName + "-config",
+								},
+							},
+						})),
+					},
+				],
+			},
 		},
 	});
 }
-
-module.exports = {
-	patchDeploymentWithConfigHash,
-};

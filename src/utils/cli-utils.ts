@@ -1,9 +1,15 @@
-import * as log from "../log";
-const { table, getBorderCharacters } = require("table");
-import { getNamespaceForApp } from "../kube/kube-client";
-const inquirer = require("inquirer");
-const username = require("username");
+import chalk from "chalk";
 import { Command } from "commander";
+import readline from "readline";
+import { getBorderCharacters, table } from "table";
+import { getNamespaceForApp } from "../kube/kube-client";
+import * as log from "../log";
+import inquirer from "inquirer";
+import username from "username";
+import enquirer from "enquirer";
+
+// @ts-ignore: Missing typdefs
+const { Form } = enquirer;
 
 export function validateRequiredArg(argument: string | number, program: Command, errorMsg: string) {
 	if (!argument) {
@@ -71,4 +77,60 @@ export function sleep(ms: number) {
 
 export async function getUsername() {
 	return username();
+}
+
+export function clearScreen() {
+	if (!process.stdout.isTTY) return;
+	process.stdout.write("\x1bc");
+}
+
+export async function pressEnterToContinue() {
+	return new Promise<string>((resolve) => {
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+		rl.question(chalk.dim("\nPress enter to continue"), (a) => {
+			resolve(a);
+			rl.close();
+		});
+	});
+}
+
+export async function formPrompt<T>({
+	message,
+	choices,
+	hint,
+}: {
+	message: string;
+	hint?: string;
+	choices: {
+		name: string;
+		message: string;
+		initial?: string;
+		validate?: (value: string) => boolean | string;
+	}[];
+}): Promise<T> {
+	const form = await new Form({
+		name: message,
+		hint,
+		message,
+		align: "left",
+		validate: async (answers: any, form: any) => {
+			let msgs: string[] = [];
+
+			for (const c of form.choices) {
+				if (!c.validate) continue;
+
+				const res = c.validate(answers[c.name]);
+
+				if (typeof res === "string") {
+					msgs.push(res);
+				}
+			}
+
+			return msgs.length > 0 ? ["Format contains errors:\n", ...msgs].join("\n 💥 ") + "\n\n" : true;
+		},
+		choices,
+	}).run();
+
+	return form;
 }

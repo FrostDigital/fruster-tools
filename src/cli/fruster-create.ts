@@ -2,13 +2,14 @@
 
 import { program } from "commander";
 import inquirer from "inquirer";
+import inquirerAutocompletePrompt from "inquirer-autocomplete-prompt";
+import { getDockerRegistries } from "../actions/get-docker-registries";
+import * as dockerHubClient from "../docker/DockerHubClient";
 import * as dockerRegistryClient from "../docker/DockerRegistryClient";
-import { createDeployment, createNamespace, createService, getPods, getSecrets, setConfig } from "../kube/kube-client";
+import { createAppDeployment, createNamespace, createService, getPods, setConfig } from "../kube/kube-client";
 import * as log from "../log";
 import { create } from "../service-registry";
 import { parseStringConfigToObj, prettyPrintPods } from "../utils";
-import * as dockerHubClient from "../docker/DockerHubClient";
-import inquirerAutocompletePrompt from "inquirer-autocomplete-prompt";
 
 const { getUsername } = require("../utils/cli-utils");
 
@@ -87,7 +88,7 @@ async function run() {
 
 			if (!dryRun) {
 				// Upsert deployment based on configuration from service registry
-				await createDeployment(namespace, appConfig, username + " created app");
+				await createAppDeployment(namespace, appConfig, username + " created app");
 			} else {
 				log.info(`[Dry run] Skipping create deployment`);
 			}
@@ -273,7 +274,7 @@ async function run() {
 		await setConfig(namespace, app, parsedConfig);
 
 		// Upsert deployment based on configuration from service registry
-		await createDeployment(
+		await createAppDeployment(
 			namespace,
 			{
 				domains: domains ? domains.split(",").map((d) => d.trim()) : undefined,
@@ -306,32 +307,6 @@ async function run() {
 }
 
 run();
-
-/**
- * Finds alls docker registries that are configured with a auth token
- * withing the cluster.
- *
- * The secret is a base64 encoded auth JSON object needed to access docker registries.
- *
- * @param namespace
- * @returns
- */
-async function getDockerRegistries(
-	namespace: string
-): Promise<{ registryHost: string; dockerAuthToken: string; secretName: string }[]> {
-	const res = await getSecrets(namespace);
-
-	return (res || [])
-		.filter((r) => r.type === "kubernetes.io/dockerconfigjson")
-		.map((r) => {
-			const dockerAuth = JSON.parse(Buffer.from(r.data[".dockerconfigjson"], "base64").toString("ascii"));
-			return {
-				dockerAuthToken: dockerAuth.auths[Object.keys(dockerAuth.auths)[0]].auth,
-				secretName: r.metadata.name,
-				registryHost: Object.keys(dockerAuth.auths)[0],
-			};
-		});
-}
 
 async function wait(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
