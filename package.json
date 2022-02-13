@@ -1,6 +1,6 @@
 {
 	"name": "fruster-tools",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"scripts": {
 		"test": "ts-node ./spec/support/jasmine-runner.js",
 		"build": "rimraf --no-glob ./dist/ && tsc -p ./tsconfig.dist.json",
