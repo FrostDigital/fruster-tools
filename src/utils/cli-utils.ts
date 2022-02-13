@@ -5,7 +5,7 @@ import inquirer from "inquirer";
 import readline from "readline";
 import { getBorderCharacters, table } from "table";
 import username from "username";
-import { maskStr } from ".";
+import { maskStr } from "./string-utils";
 import { getNamespaceForApp } from "../kube/kube-client";
 import * as log from "../log";
 import childProcess from "child_process";
@@ -42,8 +42,12 @@ export function printTable(rows: string[][], header?: string[], border?: boolean
 	console.log(
 		table(rows, {
 			border: getBorderCharacters(border ? "norc" : "void"),
-			drawHorizontalLine: () => {
-				return border ? true : false;
+			drawHorizontalLine: (i) => {
+				if (header && border) {
+					return i <= 1 || i === rows.length;
+				}
+
+				return border ? i === 0 || i === rows.length : false;
 			},
 			columnDefault: {
 				paddingLeft: 0,
