@@ -9,7 +9,7 @@
 		"fruster": "./dist/cli/fruster.js"
 	},
 	"dependencies": {
-		"ajv": "^6.10.2",
+		"ajv": "^6.12.3",
 		"bluebird": "^3.7.2",
 		"chalk": "^4.1.2",
 		"commander": "8.3.0",
