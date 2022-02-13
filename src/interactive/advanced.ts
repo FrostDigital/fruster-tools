@@ -116,6 +116,8 @@ async function manageRouter() {
 			props: existingRouterDeployment,
 			escAction: "back",
 		});
+	} else {
+		popScreen();
 	}
 }
 
