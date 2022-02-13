@@ -60,7 +60,7 @@ export const getNamespace = async (name: string) => {
 	}
 };
 
-export const getDeployment = async (namespace: string, name: string) => {
+export const getDeployment = async (namespace: string, name: string): Promise<Deployment | null> => {
 	try {
 		const { body } = await client.apis.apps.v1.namespaces(namespace).deployments(name).get();
 
@@ -296,7 +296,17 @@ export const updateConfigMap = async (
 	}
 };
 
-export const ensureService = async (
+export const createService = async (namespace: string, body: Service) => {
+	try {
+		await client.api.v1.namespace(namespace).service.post({ body });
+		return true;
+	} catch (err: any) {
+		if (err.code !== 409) throw err;
+		return false;
+	}
+};
+
+export const ensureServiceForApp = async (
 	namespace: string,
 	{ name, port, domains = [] }: { name: string; port: string | number; domains?: string[] }
 ) => {
@@ -563,6 +573,23 @@ export const getClusterRole = async (name: string): Promise<ClusterRole | null> 
 	}
 };
 
+export const deleteClusterRole = async (name: string) => {
+	try {
+		await client.apis["rbac.authorization.k8s.io"].v1.clusterrole(name).delete();
+		return true;
+	} catch (err: any) {
+		if (err.statusCode === 404) {
+			log.debug(
+				`Failed to delete k8s service '${name}' (namespace '${namespace}'), kubernetes indicates that service is already removed or has never existed`
+			);
+		} else {
+			log.debug("Failed deleting service: " + name);
+		}
+
+		return false;
+	}
+};
+
 export const getClusterRoleBinding = async (name: string): Promise<ClusterRoleBinding | null> => {
 	try {
 		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding(name).get();
@@ -571,6 +598,16 @@ export const getClusterRoleBinding = async (name: string): Promise<ClusterRoleBi
 		if (err.code === 404) return null;
 
 		throw err;
+	}
+};
+
+export const deleteClusterRoleBinding = async (name: string): Promise<boolean> => {
+	try {
+		await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding(name).delete();
+		return true;
+	} catch (err: any) {
+		if (err.code === 404) return true;
+		return false;
 	}
 };
 
@@ -595,6 +632,54 @@ export const createClusterRoleBinding = async (clusterRoleBinding: ClusterRoleBi
 	}
 };
 
+export const createRole = async (namespace: string, role: any): Promise<boolean> => {
+	try {
+		const { body } = await client.apis["rbac.authorization.k8s.io"].v1
+			.namespace(namespace)
+			.role.post({ body: role });
+		return body;
+	} catch (err: any) {
+		throw err;
+	}
+};
+
+export const deleteRole = async (namespace: string, name: string): Promise<boolean> => {
+	try {
+		await client.apis["rbac.authorization.k8s.io"].v1.namespace(namespace).role(name).delete();
+		return true;
+	} catch (err: any) {
+		if (err.statusCode === 404) {
+			return true;
+		}
+
+		return false;
+	}
+};
+
+export const createRoleBinding = async (namespace: string, roleBinding: any): Promise<any> => {
+	try {
+		const { body } = await client.apis["rbac.authorization.k8s.io"].v1
+			.namespace(namespace)
+			.rolebinding.post({ body: roleBinding });
+		return body;
+	} catch (err: any) {
+		throw err;
+	}
+};
+
+export const deleteRoleBinding = async (namespace: string, name: string): Promise<boolean> => {
+	try {
+		await client.apis["rbac.authorization.k8s.io"].v1.namespace(namespace).rolebinding(name).delete();
+		return true;
+	} catch (err: any) {
+		if (err.statusCode === 404) {
+			return true;
+		}
+
+		return false;
+	}
+};
+
 export const getServiceAccount = async (namespace: string, name: string): Promise<ServiceAccount | null> => {
 	try {
 		const { body } = await client.api.v1.namespace(namespace).serviceaccount(name).get();
@@ -602,6 +687,16 @@ export const getServiceAccount = async (namespace: string, name: string): Promis
 	} catch (err: any) {
 		if (err.code === 404) return null;
 		throw err;
+	}
+};
+
+export const deleteServiceAccount = async (namespace: string, name: string): Promise<boolean> => {
+	try {
+		await client.api.v1.namespace(namespace).serviceaccount(name).delete();
+		return true;
+	} catch (err: any) {
+		if (err.code === 404) return true;
+		return false;
 	}
 };
 

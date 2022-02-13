@@ -39,13 +39,13 @@ async function run() {
 	const service = await getService(namespace, serviceName);
 
 	// Deep dive into objects to pin point relevant data
-	const { creationTimestamp, annotations } = deployment.metadata;
-	const container = deployment.spec.template.spec.containers[0];
-	const { limits, requests } = container.resources;
+	const { creationTimestamp, annotations } = deployment!.metadata;
+	const container = deployment?.spec.template.spec.containers[0];
+	const { limits, requests } = container!.resources!;
 	const creation = moment(creationTimestamp);
-	const { imageName, imageTag } = parseImage(container.image);
+	const { imageName, imageTag } = parseImage(container!.image);
 
-	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations;
+	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations!;
 
 	const domains = service ? (service?.metadata.annotations || {})[DOMAINS_ANNOTATION] : "";
 
@@ -61,14 +61,14 @@ async function run() {
 		["Image:", imageName],
 		["Image tag:", imageTag],
 		["", ""],
-		["Replicas:", deployment.spec.replicas],
-		["Ready replicas:", deployment.status.readyReplicas || 0],
-		["Unavailable replicas:", deployment.status.unavailableReplicas || 0],
+		["Replicas:", deployment?.spec.replicas],
+		["Ready replicas:", deployment?.status?.readyReplicas || 0],
+		["Unavailable replicas:", deployment?.status?.unavailableReplicas || 0],
 		["", ""],
-		["CPU request:", requests.cpu],
-		["CPU limit:", limits.cpu],
-		["Memory request:", requests.memory],
-		["Memory limit:", limits.memory],
+		["CPU request:", requests!.cpu],
+		["CPU limit:", limits!.cpu],
+		["Memory request:", requests!.memory],
+		["Memory limit:", limits!.memory],
 		["", ""],
 		["Liveness healthcheck:", livenesHealthcheck || "none"],
 		["", ""]

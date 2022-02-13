@@ -6,7 +6,7 @@ import * as dockerRegistryClient from "../docker/DockerRegistryClient";
 import {
 	createAppDeployment,
 	createNamespace,
-	ensureService,
+	ensureServiceForApp,
 	getConfigMap,
 	getPods,
 	getSecret,
@@ -123,7 +123,7 @@ export async function createApp() {
 		log.info("Service is routable, making sure that service exists...");
 
 		const trimmedDomains = Array.from(new Set((domains as string).split(",").map((d) => d.trim())));
-		const created = await ensureService(namespace, {
+		const created = await ensureServiceForApp(namespace, {
 			name,
 			domains: trimmedDomains,
 			port: parsedConfig.PORT,

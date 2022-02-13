@@ -21,11 +21,11 @@ export async function updateConfig(serviceName: string, namespace: string, newCo
 	// Update config stored in k8s secret
 	await setConfig(namespace, serviceName, newConfig);
 
-	deployment.metadata.annotations[CHANGE_CAUSE_ANNOTATION] = `Config was updated`;
+	(deployment?.metadata.annotations || {})[CHANGE_CAUSE_ANNOTATION] = `Config was updated`;
 
 	const configHash = crypto.createHash("sha256").update(JSON.stringify(newConfig)).digest("hex");
 
-	deployment.spec.template.metadata.annotations.configHash = configHash;
+	deployment!.spec.template.metadata.annotations!.configHash = configHash;
 
 	await updateDeployment(namespace, serviceName, deployment);
 }

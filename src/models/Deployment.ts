@@ -5,6 +5,7 @@ export interface Deployment {
 		namespace: string;
 		name: string;
 		labels?: { [x: string]: string };
+		annotations?: { [x: string]: string };
 		[x: string]: any;
 	};
 	status?: {
@@ -12,6 +13,7 @@ export interface Deployment {
 		availableReplicas: number;
 		replicas: number;
 		updatedReplicas: number;
+		unavailableReplicas: number;
 	};
 	spec: {
 		replicas: number;
@@ -48,7 +50,10 @@ export interface Deployment {
 						name: string;
 						value?: string;
 						valueFrom?: {
-							secretKeyRef: {
+							fieldRef?: {
+								fieldPath: string;
+							};
+							secretKeyRef?: {
 								key: string;
 								name: string;
 							};

@@ -6,7 +6,7 @@ const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
 
 export async function updateImage(serviceName: string, namespace: string, newTag: string, verify?: boolean) {
 	const deployment = await getDeployment(namespace, serviceName);
-	const [existingImage, existingImageTag] = deployment.spec.template.spec.containers[0].image.split(":");
+	const [existingImage, existingImageTag] = deployment!.spec.template.spec.containers[0].image.split(":");
 	const newImage = `${existingImage}:${newTag}`;
 	const username = await getUsername();
 

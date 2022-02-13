@@ -99,7 +99,7 @@ async function run() {
 					}
 
 					const existingLivenessHealthCheck =
-						deployment.metadata.annotations[FRUSTER_LIVENESS_ANNOTATION] || "none";
+						deployment!.metadata.annotations![FRUSTER_LIVENESS_ANNOTATION] || "none";
 
 					if (app.livenessHealthCheck !== existingLivenessHealthCheck) {
 						log.info(
@@ -265,7 +265,7 @@ async function createApp(namespace: string, service: AppManifest, removeKubeServ
 	});
 	// Create k8s service if routable
 	if (service.routable) {
-		await kubeClient.ensureService(namespace, { ...service, port: service.env.PORT });
+		await kubeClient.ensureServiceForApp(namespace, { ...service, port: service.env.PORT });
 	} else if (removeKubeService) {
 		await kubeClient.deleteService(namespace, service.name);
 	}

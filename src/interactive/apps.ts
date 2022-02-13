@@ -12,7 +12,7 @@ import {
 	deleteDeployment,
 	deleteSecret,
 	deleteService,
-	ensureService,
+	ensureServiceForApp,
 	getConfig,
 	getConfigMap,
 	getConfigNameFromServiceName,
@@ -110,7 +110,7 @@ async function viewApp(deployment: Deployment) {
 
 	const { name, namespace } = deployment.metadata;
 
-	deployment = await getDeployment(namespace, name);
+	deployment = (await getDeployment(namespace, name)) as Deployment;
 	const service = await getService(namespace, name);
 
 	clearScreen();
@@ -660,7 +660,7 @@ async function addDomain({ deployment, existingDomains }: { deployment: Deployme
 		await setConfig(namespace, name, config);
 	}
 
-	await ensureService(namespace, { name, domains: parsedDomains, port: config.PORT });
+	await ensureServiceForApp(namespace, { name, domains: parsedDomains, port: config.PORT });
 
 	console.log();
 	log.success("✅ Domain(s) was updated");
@@ -699,7 +699,7 @@ async function removeDomain({
 
 	let updatedDomains = existingDomains.split(",").filter((d) => d !== domain);
 
-	await ensureService(namespace, { name, domains: updatedDomains, port: config.PORT });
+	await ensureServiceForApp(namespace, { name, domains: updatedDomains, port: config.PORT });
 
 	console.log();
 	log.success(`✅ Domain ${domain} was removed`);

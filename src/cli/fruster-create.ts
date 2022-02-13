@@ -2,7 +2,7 @@
 
 import { program } from "commander";
 import { createFrusterNamespace } from "../actions/create-fruster-namespace";
-import { createAppDeployment, ensureService, setConfig } from "../kube/kube-client";
+import { createAppDeployment, ensureServiceForApp, setConfig } from "../kube/kube-client";
 import * as log from "../log";
 import { Secret } from "../models/Secret";
 import { create } from "../service-registry";
@@ -93,7 +93,7 @@ async function run() {
 				log.info("Service is routable, making sure that service exists...");
 
 				if (!dryRun) {
-					const created = await ensureService(namespace, { ...appConfig, port: appConfig.env.PORT });
+					const created = await ensureServiceForApp(namespace, { ...appConfig, port: appConfig.env.PORT });
 					log.success(`Service ${created ? "was created" : "already exists"}`);
 				} else {
 					log.info(`[Dry run] Skipping make routable`);

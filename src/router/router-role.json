@@ -1,0 +1,19 @@
+{
+	"apiVersion": "rbac.authorization.k8s.io/v1",
+	"kind": "Role",
+	"metadata": {
+		"labels": {
+			"app": "deis-router",
+			"heritage": "deis"
+		},
+		"name": "deis-router",
+		"namespace": "deis"
+	},
+	"rules": [
+		{
+			"apiGroups": ["extensions", "apps"],
+			"resources": ["deployments"],
+			"verbs": ["get"]
+		}
+	]
+}
