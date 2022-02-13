@@ -3,7 +3,8 @@
 	"version": "0.3.0",
 	"scripts": {
 		"test": "ts-node ./spec/support/jasmine-runner.js",
-		"build": "rimraf --no-glob ./dist/ && tsc -p ./tsconfig.dist.json"
+		"build": "rimraf --no-glob ./dist/ && tsc -p ./tsconfig.dist.json",
+		"prepublish": "npm run build"
 	},
 	"bin": {
 		"fruster": "./dist/cli/fruster.js"
