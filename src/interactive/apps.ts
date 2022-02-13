@@ -335,9 +335,9 @@ async function editConfig(deployment: any) {
 		message: "Select action",
 		choices: [
 			separator,
-			{ message: chalk.magenta("◎ Edit app config"), name: "edit" },
+			{ message: "◎ Edit app config", name: "edit" },
 			{
-				message: chalk.magentaBright("○ Edit global config"),
+				message: "○ Edit global config",
 				name: "editGlobalConfig",
 			},
 			separator,

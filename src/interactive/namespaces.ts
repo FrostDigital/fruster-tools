@@ -176,7 +176,7 @@ async function globalConfig(ns: Namespace) {
 	console.log("Global config are config exposed as env vars to all apps within the namespace");
 	console.log();
 
-	const tableRows = Object.keys(globalConfig?.data || {}).map((k) => [chalk.dim(k), globalConfig!.data[k]]);
+	const tableRows = Object.keys(globalConfig?.data || {}).map((k) => [k, globalConfig!.data[k]]);
 
 	printTable(tableRows, ["Key", "Value"], true);
 
@@ -233,11 +233,11 @@ async function globalSecrets({ namespace, reveal }: { namespace: Namespace; reve
 			choices: [
 				separator,
 				{
-					message: chalk.magenta("o Edit secrets"),
+					message: "o Edit secrets",
 					name: "edit",
 				},
 				{
-					message: chalk.magentaBright(reveal ? "⚉ Hide secrets" : "⚇ Reveal secrets"),
+					message: reveal ? "⚉ Hide secrets" : "⚇ Reveal secrets",
 					name: "reveal",
 				},
 				separator,
