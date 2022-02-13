@@ -1,5 +1,5 @@
-export interface Secret {
-	kind: "Secret";
+export interface ConfigMap {
+	kind: "ConfigMap";
 	apiVersion: "v1";
 	metadata: {
 		name: string;
@@ -8,5 +8,4 @@ export interface Secret {
 		labels?: { [x: string]: string };
 	};
 	data: { [x: string]: string };
-	type?: string;
 }

@@ -35,7 +35,7 @@ export async function installTokenRefresher() {
 	console.log();
 	console.log(
 		chalk.dim(
-			"This is needed as AWS ECR and other private registries only provide short lived tokens for authentication,\n	so even if there is a working authentication at the time the registry it will fail if used a couple of \nhours later when for example pod is rescheduled onto another node."
+			"This is needed as AWS ECR and other private registries only provide short lived tokens for authentication,\nso even if there is a working authentication at the time the registry it will fail if used a couple of \nhours later when for example pod is rescheduled onto another node."
 		)
 	);
 	console.log();
@@ -130,7 +130,7 @@ export async function installTokenRefresher() {
 	}
 
 	// Create secret
-	const existingSecret = await getSecret(name, namespace);
+	const existingSecret = await getSecret(namespace, name);
 
 	if (existingSecret) {
 		console.log(`Secret ${name} in namespace ${namespace} already exists, keeping it as-is`);

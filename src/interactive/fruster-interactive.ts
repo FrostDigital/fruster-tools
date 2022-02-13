@@ -4,6 +4,7 @@ import { advanced } from "./advanced";
 import { apps } from "./apps";
 import { createApp } from "./create-app";
 import { pushScreen, separator } from "./engine";
+import { namespaces } from "./namespaces";
 import { registries } from "./registries";
 
 export async function start() {
@@ -17,12 +18,6 @@ export async function start() {
 async function renderMainMenu() {
 	console.log(chalk.magenta(`\n Fruster interactive CLI\n`));
 
-	// TODO: REMOVE!
-
-	// pushScreen({
-	// 	render: createApp,
-	// });
-
 	const { item } = await enquirer.prompt<{ item: string }>([
 		{
 			type: "select",
@@ -31,6 +26,7 @@ async function renderMainMenu() {
 			choices: [
 				separator,
 				{ message: "Apps", name: "apps" },
+				{ message: "Namespaces", name: "namespaces" },
 				{ message: "Registries", name: "registries" },
 				{ message: "Advanced", name: "advanced" },
 				separator,
@@ -59,6 +55,13 @@ async function renderMainMenu() {
 				escAction: "back",
 				render: advanced,
 				name: "registries",
+			});
+			break;
+		case "namespaces":
+			pushScreen({
+				escAction: "back",
+				render: namespaces,
+				name: "namespaces",
 			});
 			break;
 		case "exit":

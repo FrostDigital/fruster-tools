@@ -1,8 +1,10 @@
 export interface Namespace {
 	metadata: {
 		name: string;
-		labels: { [x: string]: string }[];
+		labels?: { [x: string]: string };
 	};
 	spec: any;
-	status: any;
+	status?: {
+		phase: "Terminating" | "Active";
+	};
 }

@@ -44,3 +44,6 @@ spec/support/fruster/test
 spec/support/fruster/service-registries
 
 dist
+
+
+.vscode/

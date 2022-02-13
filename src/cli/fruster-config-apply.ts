@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
-import { ServiceRegistryService } from "../models/ServiceRegistryModel";
-import { create } from "../service-registry/service-registry-factory";
-import ServiceRegistry from "../service-registry/ServiceRegistry";
+import { createFrusterNamespace } from "../actions/create-fruster-namespace";
 import * as kubeClient from "../kube/kube-client";
 import * as log from "../log";
+import { AppManifest } from "../models/ServiceRegistryModel";
+import { create } from "../service-registry/service-registry-factory";
+import ServiceRegistry from "../service-registry/ServiceRegistry";
 const { validateRequiredArg, getUsername } = require("../utils/cli-utils");
 const { patchDeploymentWithConfigHash } = require("../utils/config-utils");
 const moment = require("moment");
@@ -247,14 +248,9 @@ function mergeConfig(name: string, existingConfig: any, newConfig: any) {
  * @param {boolean=} removeKubeService
  * @param {string=} changeCause
  */
-async function createApp(
-	namespace: string,
-	service: ServiceRegistryService,
-	removeKubeService = false,
-	changeCause = ""
-) {
+async function createApp(namespace: string, service: AppManifest, removeKubeService = false, changeCause = "") {
 	// Upsert namespace
-	await kubeClient.createNamespace(service.name);
+	await createFrusterNamespace(service.name);
 
 	// Copy existing imagePullSecret from default namespace to new service namespace
 	if (service.imagePullSecret) {
@@ -262,10 +258,14 @@ async function createApp(
 	}
 
 	// Upsert deployment
-	await kubeClient.createAppDeployment(namespace, service, changeCause);
+	await kubeClient.createAppDeployment(namespace, service, {
+		changeCause,
+		hasGlobalConfig: true,
+		hasGlobalSecrets: true,
+	});
 	// Create k8s service if routable
 	if (service.routable) {
-		await kubeClient.createService(namespace, service);
+		await kubeClient.ensureService(namespace, { ...service, port: service.env.PORT });
 	} else if (removeKubeService) {
 		await kubeClient.deleteService(namespace, service.name);
 	}

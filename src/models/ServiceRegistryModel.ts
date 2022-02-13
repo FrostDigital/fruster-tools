@@ -3,10 +3,10 @@ export interface ServiceRegistryModel {
 	env?: any;
 	args?: any;
 	extends?: string;
-	services: ServiceRegistryService[];
+	services: AppManifest[];
 }
 
-export interface ServiceRegistryService {
+export interface AppManifest {
 	name: string;
 	repo?: string;
 	image?: string;

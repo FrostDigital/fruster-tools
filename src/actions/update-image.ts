@@ -60,7 +60,7 @@ export async function updateImage(serviceName: string, namespace: string, newTag
 				}
 			}
 
-			await sleep(2000);
+			await sleep(3000);
 		}
 
 		if (!verified) {

@@ -12,8 +12,8 @@ export function popScreen() {
 	events.emit("popScreen");
 }
 
-export function resetScreen() {
-	events.emit("resetScreen");
+export function resetScreen(props?: any) {
+	events.emit("resetScreen", props);
 }
 
 export function lockEsc() {
@@ -37,6 +37,7 @@ export const separator = {
 	message: chalk.dim("-------------"),
 	name: "----",
 	role: "separator",
+	separator: " ",
 };
 
 export const backChoice = {
@@ -86,10 +87,12 @@ events.on("popScreen", () => {
 	renderScreen(stack[stack.length - 1]);
 });
 
-events.on("resetScreen", () => {
+events.on("resetScreen", (props?: any) => {
 	escLocked = false;
 	clearScreen();
-	renderScreen(stack[stack.length - 1]);
+	const screen = stack[stack.length - 1];
+	screen.props = { ...(screen.props || {}), ...(props || {}) };
+	renderScreen(screen);
 });
 
 process.stdin.on("keypress", (s, key) => {

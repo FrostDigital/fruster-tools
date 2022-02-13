@@ -62,7 +62,7 @@ export async function registries() {
 }
 
 async function addEcrRegistry() {
-	const tokenRefresher = await getSecret(tokenRefresherSecret, tokenRefresherNamespace);
+	const tokenRefresher = await getSecret(tokenRefresherNamespace, tokenRefresherSecret);
 
 	if (!tokenRefresher) {
 		log.warn(
@@ -77,9 +77,9 @@ async function addEcrRegistry() {
 	}
 
 	log.info(
-		"This will add a private ECR registry via Fruster Token Refresher.\n" +
+		"This will add a private ECR registry to Fruster Token Refreshers configuration.\n" +
 			chalk.dim(
-				"Why so? https://medium.com/@xynova/keeping-aws-registry-pull-credentials-fresh-in-kubernetes-2d123f581ca6"
+				"By adding it it will continuously generate a fresh authentication so k8s is allowed to access the private registry.\nThe auth will be created as a k8s secret of type kubernetes.io/dockerconfigjson and will be available to use from services within the same namespace."
 			)
 	);
 
@@ -106,7 +106,7 @@ async function addEcrRegistry() {
 			},
 			{
 				name: "namespace",
-				message: "Namespace",
+				message: "Namespace where auth will be used",
 				validate: (value: string) => (value.length > 0 ? true : "Namespace is required"),
 			},
 			{

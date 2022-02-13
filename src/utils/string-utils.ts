@@ -163,3 +163,7 @@ export function validateMemoryResource(str: string) {
 export function validateCpuResource(str: string) {
 	return cpuResourceRe.test(str);
 }
+
+export function maskStr(str: string) {
+	return str.replace(/./g, "*");
+}

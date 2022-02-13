@@ -7,6 +7,12 @@ export interface Deployment {
 		labels?: { [x: string]: string };
 		[x: string]: any;
 	};
+	status?: {
+		readyReplicas: number;
+		availableReplicas: number;
+		replicas: number;
+		updatedReplicas: number;
+	};
 	spec: {
 		replicas: number;
 		strategy?: {
@@ -30,6 +36,14 @@ export interface Deployment {
 					livenessProbe?: any; // TODO
 					image: string;
 					name: string;
+					envFrom?: {
+						configMapRef?: {
+							name: string;
+						};
+						secretRef?: {
+							name: string;
+						};
+					}[];
 					env: {
 						name: string;
 						value?: string;

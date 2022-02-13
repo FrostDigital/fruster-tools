@@ -1,16 +1,25 @@
 import { Client1_13 } from "kubernetes-client";
 import { kubeClientVersion } from "../conf";
-import { deployment, namespace, secret, service } from "./kube-templates";
+import { deployment, namespace, appConfigSecret, service } from "./kube-templates";
 import * as log from "../log";
-import { ServiceRegistryService } from "../models/ServiceRegistryModel";
+import { AppManifest } from "../models/ServiceRegistryModel";
 import { Namespace } from "../models/Namespace";
 import { ClusterRole } from "../models/ClusterRole";
 import { ClusterRoleBinding } from "../models/ClusterRoleBinding";
 import { ServiceAccount } from "../models/ServiceAccount";
 import { Deployment } from "../models/Deployment";
 import { Secret } from "../models/Secret";
+import { Service } from "../models/Service";
+import { DOMAINS_ANNOTATION } from "./kube-constants";
+import { ConfigMap } from "../models/ConfigMap";
 
-const client = new Client1_13({ version: kubeClientVersion });
+const REQ_TIMEOUT = 20 * 1000;
+const Request = require("kubernetes-client/backends/request");
+
+const client = new Client1_13({
+	backend: new Request({ ...Request.config.fromKubeconfig(), timeout: REQ_TIMEOUT }),
+	version: kubeClientVersion,
+});
 
 const ROLLING_RESTART_DELAY_SEC = 10;
 
@@ -41,7 +50,7 @@ export const createNamespace = async (name: string, dryRun = false) => {
 	}
 };
 
-const getNamespace = async (name: string) => {
+export const getNamespace = async (name: string) => {
 	try {
 		const { body } = await client.api.v1.namespaces(name).get();
 		return body;
@@ -62,7 +71,7 @@ export const getDeployment = async (namespace: string, name: string) => {
 	}
 };
 
-export const getDeployments = async (namespace?: string, app?: string): Promise<{ items: any[] }> => {
+export const getDeployments = async (namespace?: string, app?: string): Promise<{ items: Deployment[] }> => {
 	try {
 		const qs = { qs: { labelSelector: "fruster=true" } };
 
@@ -85,6 +94,16 @@ export const getDeployments = async (namespace?: string, app?: string): Promise<
 	}
 };
 
+export const deleteNamespace = async (name: string) => {
+	try {
+		const { body } = await client.api.v1.namespace(name).delete();
+		return body;
+	} catch (err: any) {
+		if (err.code !== 404) throw err;
+		return null;
+	}
+};
+
 export const deleteDeployment = async (namespace: string, name: string) => {
 	try {
 		const { body } = await client.apis.apps.v1.namespaces(namespace).deployments(name).delete();
@@ -97,8 +116,8 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 
 export const createAppDeployment = async (
 	namespace: string,
-	serviceConfig: ServiceRegistryService,
-	changeCause: string
+	serviceConfig: AppManifest,
+	opts?: { changeCause: string; configName?: string; hasGlobalConfig?: boolean; hasGlobalSecrets?: boolean }
 ) => {
 	const existingDeployment = await getDeployment(namespace, serviceConfig.name);
 
@@ -113,11 +132,13 @@ export const createAppDeployment = async (
 		imageTag: serviceConfig.imageTag,
 		// Use existing number of replicas in update of deployment
 		replicas: existingDeployment ? existingDeployment.spec.replicas : 1,
-		env: serviceConfig.env,
+		configName: opts?.configName,
 		resources: serviceConfig.resources,
 		livenessHealthCheckType: serviceConfig.livenessHealthCheck,
-		changeCause,
+		changeCause: opts?.changeCause,
 		imagePullSecret: serviceConfig.imagePullSecret,
+		hasGlobalConfig: opts?.hasGlobalConfig,
+		hasGlobalSecrets: opts?.hasGlobalSecrets,
 	});
 
 	try {
@@ -164,7 +185,7 @@ export const updateDeployment = async (namespace: string, deploymentName: string
 	}
 };
 
-export const getSecret = async (name: string, namespace = "default"): Promise<Secret | null> => {
+export const getSecret = async (namespace = "default", name: string): Promise<Secret | null> => {
 	try {
 		const { body } = await client.api.v1.namespaces(namespace).secret(name).get();
 		return body;
@@ -174,22 +195,24 @@ export const getSecret = async (name: string, namespace = "default"): Promise<Se
 	}
 };
 
-export const setConfig = async (namespace: string, serviceName: string, env: any) => {
-	const newSecret = secret(namespace, serviceName, { ...(env || {}) });
+export const setConfig = async (namespace: string, serviceName: string, env: any): Promise<Secret> => {
+	const newSecret = appConfigSecret(namespace, serviceName, { ...(env || {}) });
 
 	try {
 		await client.api.v1.namespaces(namespace).secrets.post({ body: newSecret });
 		log.debug(`Created config for ${serviceName}`);
+		return newSecret;
 	} catch (err: any) {
 		if (err.code !== 409) throw err;
 
 		await client.api.v1.namespace(namespace).secret(newSecret.metadata.name).put({ body: newSecret });
 
 		log.debug(`Updated config for ${serviceName}`);
+		return newSecret;
 	}
 };
 
-export const updateSecret = async (namespace: string, name: string, body: any) => {
+export const updateSecret = async (namespace: string, name: string, body: Secret) => {
 	try {
 		await client.api.v1.namespace(namespace).secret(name).put({ body });
 		log.debug(`Updated secret ${name} in namespace ${namespace}`);
@@ -198,7 +221,7 @@ export const updateSecret = async (namespace: string, name: string, body: any) =
 	}
 };
 
-export const getConfig = async (namespace: string, serviceName: string) => {
+export const getConfig = async (namespace: string, serviceName: string): Promise<{ [x: string]: string } | null> => {
 	try {
 		const { body } = await client.api.v1
 			.namespace(namespace)
@@ -211,7 +234,7 @@ export const getConfig = async (namespace: string, serviceName: string) => {
 			});
 		}
 
-		return body.data;
+		return body.data || {};
 	} catch (err: any) {
 		if (err.code !== 404) throw err;
 		return null;
@@ -241,17 +264,48 @@ export const deleteSecret = async (namespace: string, secretName: string) => {
 	}
 };
 
-export const createService = async (
-	namespace: string,
-	{ name, env, domains = [] }: { name: string; env: any; domains?: string[] }
-) => {
-	if (!domains.includes(name)) domains.push(name);
+export const getConfigMap = async (namespace: string, name: string): Promise<ConfigMap | null> => {
+	try {
+		const { body } = await client.api.v1.namespaces(namespace).configmap(name).get();
+		return body;
+	} catch (err: any) {
+		if (err.code === 404) return null;
+		throw err;
+	}
+};
 
-	const port = env.PORT;
+export const createConfigMap = async (namespace: string, configMap: ConfigMap): Promise<ConfigMap | null> => {
+	try {
+		const { body } = await client.api.v1.namespaces(namespace).configmap.post({ body: configMap });
+		return body;
+	} catch (err: any) {
+		throw err;
+	}
+};
+
+export const updateConfigMap = async (
+	namespace: string,
+	name: string,
+	configMap: ConfigMap
+): Promise<ConfigMap | null> => {
+	try {
+		const { body } = await client.api.v1.namespaces(namespace).configmap(name).put({ body: configMap });
+		return body;
+	} catch (err: any) {
+		throw err;
+	}
+};
+
+export const ensureService = async (
+	namespace: string,
+	{ name, port, domains = [] }: { name: string; port: string | number; domains?: string[] }
+) => {
+	// Name of service is mandatory as domain
+	if (!domains.includes(name)) domains.push(name);
 
 	if (!port) {
 		log.error(`Missing PORT in env for ${name} which is needed for routable apps`);
-		process.exit(1);
+		throw new Error("Missing PORT");
 	}
 
 	try {
@@ -261,11 +315,26 @@ export const createService = async (
 	} catch (err: any) {
 		if (err.code !== 409) throw err;
 		log.debug(`Service already exists`);
+
+		const existingService = await getService(namespace, name);
+		const existingDomains = (existingService?.metadata.annotations || {})[DOMAINS_ANNOTATION];
+
+		if (existingService && existingDomains !== domains.join(",")) {
+			existingService.metadata.annotations = existingService.metadata.annotations || {
+				"router.deis.io/maintenance": "False",
+				"router.deis.io/ssl.enforce": "False",
+			};
+
+			existingService.metadata.annotations[DOMAINS_ANNOTATION] = domains.join(",");
+
+			await client.api.v1.namespace(namespace).service(name).put({ body: existingService });
+		}
+
 		return false;
 	}
 };
 
-export const getService = async (namespace: string, name: string) => {
+export const getService = async (namespace: string, name: string): Promise<Service | null> => {
 	try {
 		const { body } = await client.api.v1.namespace(namespace).service(name).get();
 		return body;
@@ -549,7 +618,7 @@ export const createServiceAccount = async (namespace: string, serviceAccount: Se
  *
  * @param {string} serviceName
  */
-function getConfigNameFromServiceName(serviceName: string) {
+export function getConfigNameFromServiceName(serviceName: string) {
 	return serviceName + "-config";
 }
 

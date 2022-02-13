@@ -47,7 +47,7 @@ async function run() {
 
 	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations;
 
-	const { [DOMAINS_ANNOTATION]: domains } = service ? service.metadata.annotations : "";
+	const domains = service ? (service?.metadata.annotations || {})[DOMAINS_ANNOTATION] : "";
 
 	const tableModel = [];
 	tableModel.push(
