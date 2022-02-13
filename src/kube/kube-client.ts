@@ -1,4 +1,4 @@
-import { Client1_13 } from "kubernetes-client";
+import { ApiClient, ApiRoot, Client1_13 } from "kubernetes-client";
 import { kubeClientVersion } from "../conf";
 import { deployment, namespace, appConfigSecret, service } from "./kube-templates";
 import * as log from "../log";
@@ -16,10 +16,16 @@ import { ConfigMap } from "../models/ConfigMap";
 const REQ_TIMEOUT = 20 * 1000;
 const Request = require("kubernetes-client/backends/request");
 
-const client = new Client1_13({
-	backend: new Request({ ...Request.config.fromKubeconfig(), timeout: REQ_TIMEOUT }),
-	version: kubeClientVersion,
-});
+let client: ApiRoot;
+
+if (!process.env.CI) {
+	client = new Client1_13({
+		backend: new Request({ ...Request.config.fromKubeconfig(), timeout: REQ_TIMEOUT }),
+		version: kubeClientVersion,
+	});
+} else {
+	client = {} as ApiRoot; // mock if test
+}
 
 const ROLLING_RESTART_DELAY_SEC = 10;
 

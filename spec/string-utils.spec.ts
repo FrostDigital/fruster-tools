@@ -1,6 +1,6 @@
 import { parseImage } from "../src/utils/string-utils";
 
-fdescribe("string-utils", () => {
+describe("string-utils", () => {
 	it("should parse image (ecr registry)", () => {
 		const image = "126311103123.dkr.ecr.eu-north-1.amazonaws.com/wb-contact-service:develop-1237fbf3";
 
