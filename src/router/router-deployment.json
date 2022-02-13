@@ -1,0 +1,62 @@
+{
+	"apiVersion": "apps/v1",
+	"kind": "Deployment",
+	"metadata": {
+		"annotations": { "component.deis.io/version": "v2.19.0", "router.deis.io/nginx.bodySize": "100m" },
+		"labels": { "heritage": "deis" },
+		"name": "deis-router",
+		"namespace": "deis"
+	},
+	"spec": {
+		"replicas": 1,
+		"selector": { "matchLabels": { "app": "deis-router" } },
+		"strategy": { "rollingUpdate": { "maxSurge": 1, "maxUnavailable": 0 }, "type": "RollingUpdate" },
+		"template": {
+			"metadata": { "labels": { "app": "deis-router" } },
+			"spec": {
+				"containers": [
+					{
+						"env": [
+							{
+								"name": "POD_NAMESPACE",
+								"valueFrom": {
+									"fieldRef": {
+										"apiVersion": "v1",
+										"fieldPath": "metadata.namespace"
+									}
+								}
+							}
+						],
+						"image": "hephy/router:v2.19.0",
+						"imagePullPolicy": "IfNotPresent",
+						"livenessProbe": {
+							"failureThreshold": 3,
+							"httpGet": { "path": "/healthz", "port": 9090, "scheme": "HTTP" },
+							"initialDelaySeconds": 10,
+							"periodSeconds": 10,
+							"successThreshold": 1,
+							"timeoutSeconds": 1
+						},
+						"name": "deis-router",
+						"ports": [
+							{ "containerPort": 8080, "protocol": "TCP" },
+							{ "containerPort": 6443, "protocol": "TCP" },
+							{ "containerPort": 2222, "protocol": "TCP" },
+							{ "containerPort": 9090, "protocol": "TCP" }
+						],
+						"readinessProbe": {
+							"failureThreshold": 3,
+							"httpGet": { "path": "/healthz", "port": 9090, "scheme": "HTTP" },
+							"initialDelaySeconds": 1,
+							"periodSeconds": 10,
+							"successThreshold": 1,
+							"timeoutSeconds": 1
+						},
+						"resources": {}
+					}
+				],
+				"serviceAccount": "deis-router"
+			}
+		}
+	}
+}
