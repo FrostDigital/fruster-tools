@@ -127,12 +127,14 @@ async function viewNamespace(ns: Namespace) {
 		choices: [
 			separator,
 			{
-				message: `${ensureLength("Config", 20)}${chalk.dim("Global env config for apps within namespace")}`,
+				message: `${ensureLength("Config", 20)}${chalk.dim(
+					"Global env available for all apps within namespace"
+				)}`,
 				name: "globalConfig",
 			},
 			{
 				message: `${ensureLength("Secrets", 20)}${chalk.dim(
-					"Global secrets available to use within namespace"
+					"Global secrets available for all apps within namespace"
 				)}`,
 				name: "globalSecrets",
 			},

@@ -29,13 +29,14 @@ const defaultVersion = "0.0.5";
 export async function installTokenRefresher() {
 	console.log();
 	console.log(`This will install ${chalk.magenta("fruster-registry-token-refresher")} onto the cluster.`);
+	console.log();
 	console.log(
 		`The token refresher is used to continuously create a fresh authentication for private registries\nand save it as a secret of type kubernetes.io/dockerconfigjson.`
 	);
 	console.log();
 	console.log(
 		chalk.dim(
-			"This is needed as AWS ECR and other private registries only provide short lived tokens for authentication,\nso even if there is a working authentication at the time the registry is added it will fail if used a couple of \nhours later i.e. when pod is rescheduled onto another node."
+			"This is needed as AWS ECR and some other private registries only provide short lived tokens for authentication,\nso even if there is a working authentication at the time the registry is added it eventually fail once the token expires."
 		)
 	);
 	console.log();
@@ -63,7 +64,7 @@ export async function installTokenRefresher() {
 		},
 	]);
 
-	console.log("\n\n");
+	console.log();
 
 	// Check if namespace exists or needs to be created
 	const namespaces = await getNamespaces();
@@ -145,8 +146,6 @@ export async function installTokenRefresher() {
 	log.success(
 		`✅ Created token refresher deployment ${chalk.magenta(name)} in namespace ${chalk.magenta(namespace)}\n`
 	);
-	console.log("");
-	console.log();
 
 	await pressEnterToContinue();
 
