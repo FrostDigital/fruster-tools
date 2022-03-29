@@ -155,6 +155,14 @@ async function viewApp(deployment: Deployment) {
 				name: "resources",
 			},
 			{
+				message: `${ensureLength("Add SSL cert", 25)} ${
+					service?.metadata.annotations
+						? chalk.magenta(service?.metadata.annotations["router.deis.io/certificates"] || "none")
+						: ""
+				}`,
+				name: "addSsl",
+			},
+			{
 				message: chalk.red("Delete app"),
 				name: "delete",
 			},
@@ -211,6 +219,14 @@ async function viewApp(deployment: Deployment) {
 				render: resources,
 				props: deployment,
 				name: "resources",
+				escAction: "back",
+			});
+			break;
+		case "addSsl":
+			pushScreen({
+				render: addSsl,
+				props: deployment,
+				name: "addSsl",
 				escAction: "back",
 			});
 			break;
@@ -745,5 +761,9 @@ async function deleteApp(deployment: Deployment) {
 	console.log();
 	log.success(`✅ App was deleted`);
 	await pressEnterToContinue();
+	popScreen();
+}
+
+async function addSsl(deployment: Deployment) {
 	popScreen();
 }

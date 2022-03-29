@@ -18,22 +18,24 @@ import {
 	deleteService,
 	deleteServiceAccount,
 	getDeployment,
+	getSecret,
 	patchDeployment,
+	updateSecret,
 } from "../kube/kube-client";
-import { confirmPrompt, formPrompt, sleep } from "../utils/cli-utils";
-import { backChoice, lockEsc, popScreen, pushScreen, separator } from "./engine";
-import { installTokenRefresher } from "./install-token-refresher";
-import routerService from "../router/router-svc.json";
-import routerDeployment from "../router/router-deployment.json";
+import { Deployment } from "../models/Deployment";
 import routerClusterRole from "../router/router-clusterrole.json";
 import routerClusterRoleBinding from "../router/router-clusterrolebinding.json";
+import routerDeployment from "../router/router-deployment.json";
 import routerRole from "../router/router-role.json";
 import routerRoleBinding from "../router/router-rolebinding.json";
 import routerSecret from "../router/router-secret-dhparam.json";
 import routerServiceAccount from "../router/router-serviceaccount.json";
-import { ensureLength } from "../utils";
-import chalk from "chalk";
-import { Deployment } from "../models/Deployment";
+import routerService from "../router/router-svc.json";
+import { base64decode, base64encode } from "../utils";
+import { confirmPrompt, formPrompt, openEditor, sleep } from "../utils/cli-utils";
+import { backChoice, lockEsc, popScreen, pushScreen, resetScreen, separator } from "./engine";
+import { installTokenRefresher } from "./install-token-refresher";
+import { Secret } from "../models/Secret";
 
 const ROUTER_NAMESPACE = "deis";
 const ROUTER_DEPLOYMENT_NAME = "deis-router";
@@ -93,7 +95,7 @@ async function manageRouter() {
 					name: "routerSettings",
 					disabled: !existingRouterDeployment,
 				},
-				{ message: "SSL certificates", name: "ssl" },
+				{ message: "Router SSL", name: "ssl" },
 				separator,
 				backChoice,
 			],
@@ -113,6 +115,12 @@ async function manageRouter() {
 	} else if (action === "routerSettings") {
 		pushScreen({
 			render: routerSettings,
+			props: existingRouterDeployment,
+			escAction: "back",
+		});
+	} else if (action === "ssl") {
+		pushScreen({
+			render: sslSettings,
 			props: existingRouterDeployment,
 			escAction: "back",
 		});
@@ -223,3 +231,102 @@ async function routerSettings(deployment: Deployment) {
 
 	popScreen();
 }
+
+const PLATFORM_SSL_SECRET_NAME = "deis-router-platform-cert";
+const CERT_PLACEHOLDER = `-----BEGIN CERTIFICATE-----
+/ * your SSL certificate here */
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+/* any intermediate certificates */
+-----END CERTIFICATE-----`;
+
+const KEY_PLACEHOLDER = `-----BEGIN RSA PRIVATE KEY-----
+/* your unencrypted private key here */
+-----END RSA PRIVATE KEY-----`;
+
+async function sslSettings(deployment: Deployment) {
+	// https://docs.teamhephy.com/managing-workflow/platform-ssl/#installing-ssl-on-the-deis-router
+
+	const secret = await getSecret("deis", PLATFORM_SSL_SECRET_NAME);
+
+	if (!secret) {
+		await createSecret("deis", platformSslSecret);
+	}
+
+	const existingCert = secret ? base64decode(secret.data["tls.crt"]) : CERT_PLACEHOLDER;
+	const existingKey = secret ? base64decode(secret.data["tls.key"]) : KEY_PLACEHOLDER;
+
+	const { action } = await enquirer.prompt<{ action: string }>([
+		{
+			type: "select",
+			name: "action",
+			message: `Router SSL`,
+			choices: [
+				separator,
+				{ message: "Edit cert", name: "editCert" },
+				{ message: "Edit key", name: "editKey" },
+				separator,
+				backChoice,
+			],
+		},
+	]);
+
+	if (action === "editCert") {
+		let updatedCert;
+
+		try {
+			updatedCert = await openEditor({
+				initialContent: existingCert,
+				guidance: "",
+			});
+		} catch (err) {}
+
+		if (updatedCert) {
+			await updateSecret("deis", PLATFORM_SSL_SECRET_NAME, {
+				...platformSslSecret,
+				data: {
+					"tls.crt": base64encode(updatedCert),
+					"tls.key": base64encode(existingKey),
+				},
+			});
+		}
+
+		resetScreen();
+	} else if (action === "editKey") {
+		let updatedKey = "";
+		try {
+			updatedKey = await openEditor({
+				initialContent: existingKey,
+				guidance: "",
+			});
+		} catch (err) {}
+
+		if (updatedKey) {
+			await updateSecret("deis", PLATFORM_SSL_SECRET_NAME, {
+				...platformSslSecret,
+				data: {
+					"tls.crt": base64encode(existingCert),
+					"tls.key": base64encode(updatedKey),
+				},
+			});
+		}
+
+		resetScreen();
+	} else {
+		popScreen();
+	}
+}
+
+const platformSslSecret: Secret = {
+	apiVersion: "v1",
+	kind: "Secret",
+	metadata: {
+		name: PLATFORM_SSL_SECRET_NAME,
+		namespace: "deis",
+	},
+	type: "Opaque",
+	data: {
+		"tls.crt": "",
+		"tls.key": "",
+	},
+};

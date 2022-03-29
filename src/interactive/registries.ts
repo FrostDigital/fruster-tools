@@ -2,7 +2,7 @@ import chalk from "chalk";
 import enquirer from "enquirer";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import { listRepos } from "../docker/DockerRegistryClient";
-import { getSecret, restartPods, updateSecret } from "../kube/kube-client";
+import { createNamespace, getNamespaces, getSecret, restartPods, updateSecret } from "../kube/kube-client";
 import * as log from "../log";
 import { Registry } from "../models/Registry";
 import {
@@ -141,6 +141,26 @@ async function addEcrRegistry() {
 			},
 		],
 	});
+
+	// Check if namespace exists or needs to be created
+	const namespaces = await getNamespaces();
+
+	if (!namespaces.find((n) => n.metadata.name === newRegistry.namespace)) {
+		const { confirmCreateNamespace } = await enquirer.prompt<{ confirmCreateNamespace: boolean }>({
+			type: "confirm",
+			name: "confirmCreateNamespace",
+			message: `Namespace ${chalk.magenta(newRegistry.namespace)} does not exist, do you want to create it?`,
+		});
+
+		if (!confirmCreateNamespace) {
+			log.error("Namespace must exist or be created");
+			await pressEnterToContinue();
+			return popScreen();
+		} else {
+			await createNamespace(newRegistry.namespace);
+			console.log(`Namespace ${chalk.magenta(newRegistry.namespace)} was created`);
+		}
+	}
 
 	const existingRegistries: any[] = JSON.parse(base64decode(tokenRefresher!.data.REGISTRIES));
 
