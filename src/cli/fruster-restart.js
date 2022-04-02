@@ -3,7 +3,7 @@
 const { program } = require("commander");
 const { patchDeployment } = require("../kube/kube-client");
 const log = require("../log");
-const { validateRequiredArg, getOrSelectNamespace, getUsername } = require("../utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespaceForApp, getUsername } = require("../utils/cli-utils");
 const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
 
 program
@@ -28,7 +28,7 @@ validateRequiredArg(serviceName, program, "Missing app name");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	const username = await getUsername();
@@ -44,7 +44,7 @@ async function run() {
 		},
 	});
 
-	log.info(`Performing rolloing restart off ${serviceName}, check progress with "fruster apps"`);
+	log.info(`Performing rolling restart off ${serviceName}, check progress with "fruster apps"`);
 }
 
 run();

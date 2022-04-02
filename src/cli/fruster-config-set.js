@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 const { program } = require("commander");
-const { getConfig, setConfig } = require("../kube/kube-client");
+const { getDeployment } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg } = require("../utils/cli-utils");
-const { patchDeploymentWithConfigHash } = require("../utils/config-utils");
-const { getOrSelectNamespace } = require("../utils/cli-utils");
+const { getOrSelectNamespaceForApp } = require("../utils/cli-utils");
+const { updateConfig, configRowsToObj } = require("../actions/update-config");
+const { getDeploymentAppConfig } = require("../utils/kube-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
@@ -32,7 +33,7 @@ validateRequiredArg(config.length, program, "Missing config");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	const configMap = {};
@@ -50,12 +51,15 @@ async function run() {
 	});
 
 	try {
-		const existingConfig = await getConfig(namespace, serviceName);
+		const deployment = await getDeployment(namespace, serviceName);
 
-		if (!existingConfig) {
-			log.error("Could not find config for service " + serviceName);
+		if (!deployment) {
+			log.error("Could not find deployment for app " + serviceName);
 			return process.exit(1);
 		}
+
+		const { config } = getDeploymentAppConfig(deployment);
+		const existingConfig = configRowsToObj(config);
 
 		let hasChange = false;
 
@@ -74,15 +78,12 @@ async function run() {
 
 		const mergedConfig = { ...existingConfig, ...configMap };
 
-		await setConfig(namespace, serviceName, mergedConfig);
-
 		// Patch deployment to trigger rolling update with new config
-		await patchDeploymentWithConfigHash(
+		await updateConfig({
 			namespace,
 			serviceName,
-			mergedConfig,
-			`Config ${Object.keys(configMap).join(",")} was updated`
-		);
+			set: mergedConfig,
+		});
 
 		log.success(`✅ Updated config ${Object.keys(configMap).join(", ")}\n`);
 

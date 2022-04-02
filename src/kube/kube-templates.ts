@@ -12,7 +12,7 @@ import {
 } from "./kube-constants";
 const { isSemver } = require("../utils/string-utils");
 
-const DEFAULT_CPU_RESOURCES = "100m/1000m";
+const DEFAULT_CPU_RESOURCES = "100m/500m";
 const DEFAULT_MEM_RESOURCES = "128Mi/256Mi";
 
 export const GLOBAL_SECRETS_NAME = "fruster-global-secrets";
@@ -24,7 +24,7 @@ export function deployment({
 	image,
 	imageTag,
 	replicas = 1,
-	configName,
+	env,
 	resources = { cpu: DEFAULT_CPU_RESOURCES, mem: DEFAULT_MEM_RESOURCES },
 	livenessHealthCheckType = "fruster-health",
 	changeCause = "",
@@ -37,7 +37,7 @@ export function deployment({
 	image: string;
 	imageTag?: string;
 	replicas?: number;
-	configName?: string;
+	env?: { [x: string]: string };
 	resources?: { cpu: string; mem: string };
 	livenessHealthCheckType?: string;
 	changeCause?: string;
@@ -80,12 +80,9 @@ export function deployment({
 		});
 	}
 
-	if (configName) {
-		envFrom.push({
-			secretRef: {
-				name: configName,
-			},
-		});
+	const envRows = [];
+	if (env) {
+		envRows.push(...Object.keys(env).map((k) => ({ name: k, value: env[k] + "" })));
 	}
 
 	return {
@@ -153,6 +150,7 @@ export function deployment({
 									name: "APP_NAME",
 									value: appName,
 								},
+								...envRows,
 							],
 						},
 					],
@@ -182,15 +180,11 @@ export function namespace(name: string) {
 	};
 }
 
-export function appConfigSecret(namespace: string, serviceName: string, config: any): Secret {
-	Object.keys(config).forEach((key) => {
-		config[key] = Buffer.from(config[key] + "").toString("base64");
-	});
-
+export function appConfigMap(namespace: string, serviceName: string, config: any): ConfigMap {
 	return {
 		apiVersion: "v1",
 		data: config,
-		kind: "Secret",
+		kind: "ConfigMap",
 		metadata: {
 			labels: {
 				app: serviceName,
@@ -199,7 +193,6 @@ export function appConfigSecret(namespace: string, serviceName: string, config: 
 			name: serviceName + "-config",
 			namespace,
 		},
-		type: "Opaque",
 	};
 }
 

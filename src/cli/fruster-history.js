@@ -4,7 +4,7 @@ const { program } = require("commander");
 const { getReplicaSets } = require("../kube/kube-client");
 const log = require("../log");
 const { validateRequiredArg } = require("../utils/cli-utils");
-const { printTable, getOrSelectNamespace } = require("../utils/cli-utils");
+const { printTable, getOrSelectNamespaceForApp } = require("../utils/cli-utils");
 const moment = require("moment");
 const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
 
@@ -29,7 +29,7 @@ validateRequiredArg(serviceName, program, "Missing app name");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	const replicaSets = await getReplicaSets(namespace, serviceName);

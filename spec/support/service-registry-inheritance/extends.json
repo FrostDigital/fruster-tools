@@ -18,6 +18,7 @@
 		},
 		{
 			"name": "fruster-auth-service",
+			"image": "fruster/fruster-auth-service",
 			"env": {
 				"BAZ": "BAZ",
 				"INTERPOLATED_VALUE": "${INTERPOLATE_ME}!"

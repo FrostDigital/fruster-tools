@@ -2,13 +2,15 @@
 
 import { program } from "commander";
 import { createFrusterNamespace } from "../actions/create-fruster-namespace";
+import { configRowsToObj, updateConfig } from "../actions/update-config";
 import * as kubeClient from "../kube/kube-client";
 import * as log from "../log";
 import { AppManifest } from "../models/ServiceRegistryModel";
 import { create } from "../service-registry/service-registry-factory";
 import ServiceRegistry from "../service-registry/ServiceRegistry";
+import { mergeConfig } from "../utils/config-utils";
+import { getDeploymentAppConfig } from "../utils/kube-utils";
 const { validateRequiredArg, getUsername } = require("../utils/cli-utils");
-const { patchDeploymentWithConfigHash } = require("../utils/config-utils");
 const moment = require("moment");
 const { FRUSTER_LIVENESS_ANNOTATION } = require("../kube/kube-constants");
 
@@ -75,21 +77,27 @@ async function run() {
 		}
 
 		for (const app of createIfNonExisting ? apps : existingApps) {
-			const existingConfig = (await kubeClient.getConfig(namespace, app.name)) || {};
-			const newConfig = app.env || {};
-			const changes = mergeConfig(app.name, existingConfig, newConfig);
+			const deployment = await kubeClient.getDeployment(namespace, app.name);
 
-			let wasChanged = false;
+			if (deployment) {
+				const { config } = getDeploymentAppConfig(deployment);
+				const configObj = configRowsToObj(config);
 
-			if (changes && !dryRun) {
-				await kubeClient.setConfig(namespace, app.name, changes);
-				log.success(`[${app.name}] Config was updated`);
-				wasChanged = true;
+				const newConfig = app.env || {};
+				const changes = mergeConfig(app.name, configObj, newConfig, prune);
+
+				if (changes && !dryRun) {
+					await updateConfig({
+						serviceName: app.name,
+						namespace,
+						set: changes,
+					});
+					log.success(`[${app.name}] Config was updated`);
+				}
 			}
 
 			if (recreateService && !createdServices.includes(app.name)) {
 				log.info(`[${app.name}] Will recreate app...`);
-				const deployment = await kubeClient.getDeployment(namespace, app.name);
 
 				if (deployment) {
 					const existingContainerSpec = deployment.spec.template.spec.containers[0];
@@ -131,19 +139,8 @@ async function run() {
 						removeRoutable,
 						`${username} recreated app from service registry at ${moment().format("YYYY-MM-DD HH:mm")}`
 					);
-					// wasChanged = true;
 					log.success(`[${app.name}] Deployment was recreated`);
 				}
-			}
-
-			if (!dryRun && wasChanged) {
-				// Patch deployment to trigger rolling update with new config
-				await patchDeploymentWithConfigHash(
-					namespace,
-					app.name,
-					changes,
-					"Config updated when service registry was applied"
-				);
 			}
 		}
 
@@ -189,56 +186,6 @@ async function getAppsToCreate(namespace: string, services: ServiceRegistry["ser
 		appsToCreate,
 		existingApps,
 	};
-}
-
-/**
- *
- * @param {string} name
- * @param {any} existingConfig
- * @param {any} newConfig
- */
-function mergeConfig(name: string, existingConfig: any, newConfig: any) {
-	/**
-	 * @type {any}
-	 */
-	let mergedConfig: any = {};
-	let upToDate = true;
-
-	for (const k in existingConfig) {
-		if (newConfig[k] === undefined) {
-			if (prune) {
-				log.warn(`[${name}] Will remove ${k} (value was "${existingConfig[k]}")`);
-				upToDate = false;
-			} else {
-				log.warn(
-					`[${name}] App has config ${k} which is missing in service registry, use --prune to remove this, current value is "${existingConfig[k]}"`
-				);
-				mergedConfig[k] = existingConfig[k];
-			}
-		} else if (existingConfig[k] != newConfig[k]) {
-			console.log(`[${name}] Updating ${k} ${existingConfig[k]} -> ${newConfig[k]}`);
-			mergedConfig[k] = newConfig[k];
-			upToDate = false;
-		} else {
-			log.debug(`[${name}] Config ${k} is up to date`);
-			mergedConfig[k] = newConfig[k];
-		}
-	}
-
-	for (const k in newConfig) {
-		if (existingConfig[k] === undefined) {
-			console.log(`[${name}] New config ${k}=${newConfig[k]}`);
-			mergedConfig[k] = newConfig[k];
-			upToDate = false;
-		}
-	}
-
-	if (upToDate) {
-		log.success(`[${name}] env config is up to date`);
-		mergedConfig = null;
-	}
-
-	return mergedConfig;
 }
 
 /**

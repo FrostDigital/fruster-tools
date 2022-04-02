@@ -52,11 +52,14 @@ export async function updateImage(serviceName: string, namespace: string, newTag
 				break;
 			} else {
 				log.info(`${attemptPrefix} Found pod with image ${newImage} but has status '${pod.status.phase}'...`);
+				if (pod.status.containerStatuses) {
+					const { waiting } = pod.status.containerStatuses[0].state;
 
-				const { waiting } = pod.status.containerStatuses[0].state;
-
-				if (waiting) {
-					log.info(`${waiting.reason} ${waiting.message || ""}`);
+					if (waiting) {
+						log.info(`${waiting.reason} ${waiting.message || ""}`);
+					}
+				} else {
+					log.info(pod.status.phase);
 				}
 			}
 

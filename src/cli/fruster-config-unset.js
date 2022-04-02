@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 const { program } = require("commander");
-const { getConfig, setConfig, restartPods } = require("../kube/kube-client");
+const { updateConfig } = require("../actions/update-config");
+const { restartPods } = require("../kube/kube-client");
 const log = require("../log");
-const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespaceForApp } = require("../utils/cli-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
@@ -31,30 +32,14 @@ validateRequiredArg(config.length, program, "Missing config");
 async function run() {
 	try {
 		if (!namespace) {
-			namespace = await getOrSelectNamespace(serviceName);
+			namespace = await getOrSelectNamespaceForApp(serviceName);
 		}
 
-		const existingConfig = await getConfig(namespace, serviceName);
-		const newConfig = { ...existingConfig };
-
-		if (!existingConfig) {
-			log.error("Could not find config for service " + serviceName);
-			return process.exit(1);
-		}
-
-		let hasChange = false;
-
-		for (const conf of config) {
-			if (existingConfig[conf]) hasChange = true;
-			delete newConfig[conf];
-		}
-
-		if (!hasChange) {
-			log.success("Already up to date 👍");
-			return;
-		}
-
-		await setConfig(namespace, serviceName, newConfig);
+		const updatedConfig = await updateConfig({
+			serviceName,
+			namespace,
+			unset: config,
+		});
 
 		log.success(`✅ Removed config ${config.join(", ")}\n`);
 
@@ -66,7 +51,7 @@ async function run() {
 			}
 		}
 
-		log.info("=== " + serviceName + "\n" + JSON.stringify(newConfig, null, 2));
+		log.info("=== " + serviceName + "\n" + JSON.stringify(updatedConfig, null, 2));
 	} catch (err) {
 		console.log(err);
 		process.exit(1);

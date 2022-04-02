@@ -2,9 +2,8 @@
 
 import { program } from "commander";
 import { createFrusterNamespace } from "../actions/create-fruster-namespace";
-import { createAppDeployment, ensureServiceForApp, setConfig } from "../kube/kube-client";
+import { createAppDeployment, ensureServiceForApp } from "../kube/kube-client";
 import * as log from "../log";
-import { Secret } from "../models/Secret";
 import { create } from "../service-registry";
 
 const { getUsername } = require("../utils/cli-utils");
@@ -66,20 +65,10 @@ async function run() {
 				continue;
 			}
 
-			let configSecret: Secret | undefined = undefined;
-
-			if (!dryRun) {
-				// Upsert config (saved as secets)
-				configSecret = await setConfig(namespace, appConfig.name, appConfig.env);
-			} else {
-				log.info(`[Dry run] Skipping set config ${appConfig.name} ${JSON.stringify(appConfig.env)}`);
-			}
-
 			if (!dryRun) {
 				// Upsert deployment based on configuration from service registry
 				await createAppDeployment(namespace, appConfig, {
 					changeCause: username + " created app",
-					configName: configSecret?.metadata.name,
 					hasGlobalConfig: true,
 					hasGlobalSecrets: true,
 				});

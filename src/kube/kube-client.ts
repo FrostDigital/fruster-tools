@@ -1,6 +1,6 @@
 import { ApiClient, ApiRoot, Client1_13 } from "kubernetes-client";
 import { kubeClientVersion } from "../conf";
-import { deployment, namespace, appConfigSecret, service } from "./kube-templates";
+import { deployment, namespace, appConfigMap, service } from "./kube-templates";
 import * as log from "../log";
 import { AppManifest } from "../models/ServiceRegistryModel";
 import { Namespace } from "../models/Namespace";
@@ -123,7 +123,7 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 export const createAppDeployment = async (
 	namespace: string,
 	serviceConfig: AppManifest,
-	opts?: { changeCause: string; configName?: string; hasGlobalConfig?: boolean; hasGlobalSecrets?: boolean }
+	opts?: { changeCause: string; hasGlobalConfig?: boolean; hasGlobalSecrets?: boolean }
 ) => {
 	const existingDeployment = await getDeployment(namespace, serviceConfig.name);
 
@@ -138,13 +138,13 @@ export const createAppDeployment = async (
 		imageTag: serviceConfig.imageTag,
 		// Use existing number of replicas in update of deployment
 		replicas: existingDeployment ? existingDeployment.spec.replicas : 1,
-		configName: opts?.configName,
 		resources: serviceConfig.resources,
 		livenessHealthCheckType: serviceConfig.livenessHealthCheck,
 		changeCause: opts?.changeCause,
 		imagePullSecret: serviceConfig.imagePullSecret,
 		hasGlobalConfig: opts?.hasGlobalConfig,
 		hasGlobalSecrets: opts?.hasGlobalSecrets,
+		env: serviceConfig.env,
 	});
 
 	try {
@@ -181,7 +181,12 @@ export const patchDeployment = async (namespace: string, deploymentName: string,
 	}
 };
 
-export const updateDeployment = async (namespace: string, deploymentName: string, update: any) => {
+export const updateDeployment = async (namespace: string, deploymentName: string, update: Deployment) => {
+	delete update.metadata.selfLink;
+	delete update.metadata.resourceVersion;
+	delete update.metadata.uid;
+	delete update.metadata.creationTimestamp;
+
 	try {
 		await client.apis.apps.v1.namespace(namespace).deployments(deploymentName).put({ body: update });
 		log.debug("Updated deployment");
@@ -201,23 +206,6 @@ export const getSecret = async (namespace = "default", name: string): Promise<Se
 	}
 };
 
-export const setConfig = async (namespace: string, serviceName: string, env: any): Promise<Secret> => {
-	const newSecret = appConfigSecret(namespace, serviceName, { ...(env || {}) });
-
-	try {
-		await client.api.v1.namespaces(namespace).secrets.post({ body: newSecret });
-		log.debug(`Created config for ${serviceName}`);
-		return newSecret;
-	} catch (err: any) {
-		if (err.code !== 409) throw err;
-
-		await client.api.v1.namespace(namespace).secret(newSecret.metadata.name).put({ body: newSecret });
-
-		log.debug(`Updated config for ${serviceName}`);
-		return newSecret;
-	}
-};
-
 export const updateSecret = async (namespace: string, name: string, body: Secret) => {
 	try {
 		await client.api.v1.namespace(namespace).secret(name).put({ body });
@@ -227,25 +215,25 @@ export const updateSecret = async (namespace: string, name: string, body: Secret
 	}
 };
 
-export const getConfig = async (namespace: string, serviceName: string): Promise<{ [x: string]: string } | null> => {
-	try {
-		const { body } = await client.api.v1
-			.namespace(namespace)
-			.secret(getConfigNameFromServiceName(serviceName))
-			.get();
+// export const getConfig = async (namespace: string, serviceName: string): Promise<{ [x: string]: string } | null> => {
+// 	try {
+// 		const { body } = await client.api.v1
+// 			.namespace(namespace)
+// 			.secret(getConfigNameFromServiceName(serviceName))
+// 			.get();
 
-		if (body.data) {
-			Object.keys(body.data).forEach((key) => {
-				body.data[key] = base64Decode(body.data[key]);
-			});
-		}
+// 		if (body.data) {
+// 			Object.keys(body.data).forEach((key) => {
+// 				body.data[key] = base64Decode(body.data[key]);
+// 			});
+// 		}
 
-		return body.data || {};
-	} catch (err: any) {
-		if (err.code !== 404) throw err;
-		return null;
-	}
-};
+// 		return body.data || {};
+// 	} catch (err: any) {
+// 		if (err.code !== 404) throw err;
+// 		return null;
+// 	}
+// };
 
 export const createSecret = async (namespace: string, secret: Secret) => {
 	secret.metadata.namespace = namespace;
@@ -743,7 +731,7 @@ function sleep(ms: number) {
 
 function filterNonTerminatedPods(pods: any[]) {
 	return pods.filter((pod) => {
-		return pod.status.containerStatuses && !pod.status.containerStatuses[0].state.terminated;
+		return pod.status.containerStatuses && !pod.status.containerStatuses[0]?.state.terminated;
 	});
 }
 

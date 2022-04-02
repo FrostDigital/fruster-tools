@@ -5,7 +5,7 @@ import moment from "moment";
 import { getDeployment, getPods, getService } from "../kube/kube-client";
 import * as log from "../log";
 import { prettyPrintPods } from "../utils";
-import { getOrSelectNamespace, printTable, validateRequiredArg } from "../utils/cli-utils";
+import { getOrSelectNamespaceForApp, printTable, validateRequiredArg } from "../utils/cli-utils";
 const { FRUSTER_LIVENESS_ANNOTATION, ROUTABLE_ANNOTATION, DOMAINS_ANNOTATION } = require("../kube/kube-constants");
 const { parseImage } = require("../utils/string-utils");
 
@@ -30,7 +30,7 @@ validateRequiredArg(serviceName, program, "Missing app name");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	// Fetch stuff

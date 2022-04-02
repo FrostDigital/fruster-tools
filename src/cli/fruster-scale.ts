@@ -2,7 +2,7 @@
 import { program } from "commander";
 import { scaleDeployment, getPods } from "../kube/kube-client";
 import * as log from "../log";
-const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespaceForApp } = require("../utils/cli-utils");
 
 program
 	.description(
@@ -28,7 +28,7 @@ validateRequiredArg(replicas, program, "Missing number of replicas");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	if (replicas === undefined) {

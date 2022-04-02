@@ -61,6 +61,10 @@ describe("Service registry", () => {
 			expect(serviceRegistry.services[1].env.HELLO_FROM_SUPER).toBe("true");
 			// @ts-ignore
 			expect(serviceRegistry.name).toBe("test");
+			// @ts-ignore
+			expect(serviceRegistry.services[0].image).toBe("fruster/fruster-api-gateway");
+			// @ts-ignore
+			expect(serviceRegistry.services[1].image).toBe("fruster/fruster-auth-service");
 
 			// @ts-ignore
 			let apiGateway = serviceRegistry.services.find((s) => s.name === "fruster-api-gateway");

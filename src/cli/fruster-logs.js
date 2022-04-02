@@ -3,7 +3,7 @@
 const { program } = require("commander");
 const { getLogs, getPods } = require("../kube/kube-client");
 const log = require("../log");
-const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespaceForApp } = require("../utils/cli-utils");
 const inquirer = require("inquirer");
 const moment = require("moment");
 
@@ -35,7 +35,7 @@ validateRequiredArg(serviceName, program, "Missing app name");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	const pods = await getPods(namespace, serviceName);

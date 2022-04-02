@@ -1,9 +1,10 @@
 export interface ServiceRegistryModel {
 	name: string;
-	env?: any;
-	args?: any;
+	env?: { [x: string]: string };
+	args?: { [x: string]: string };
 	extends?: string;
 	services: AppManifest[];
+	apiVersion?: "1" | "2";
 }
 
 export interface AppManifest {
@@ -11,6 +12,7 @@ export interface AppManifest {
 	repo?: string;
 	image?: string;
 	imageTag?: string;
+	registry?: string;
 	routable?: boolean;
 	domains?: string[];
 	resources?: {

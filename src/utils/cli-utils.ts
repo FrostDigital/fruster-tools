@@ -6,7 +6,7 @@ import readline from "readline";
 import { getBorderCharacters, table } from "table";
 import username from "username";
 import { maskStr } from "./string-utils";
-import { getNamespaceForApp } from "../kube/kube-client";
+import { getNamespaceForApp, getNamespaces } from "../kube/kube-client";
 import * as log from "../log";
 import childProcess from "child_process";
 import fs from "fs";
@@ -49,15 +49,24 @@ export function printTable(rows: string[][], header?: string[], border?: boolean
 
 				return border ? i === 0 || i === rows.length : false;
 			},
+			columns: [
+				{
+					width: 50,
+				},
+				{
+					width: 150,
+				},
+			],
 			columnDefault: {
 				paddingLeft: 0,
 				paddingRight: 3,
+				wrapWord: false,
 			},
 		})
 	);
 }
 
-export async function getOrSelectNamespace(appName: string) {
+export async function getOrSelectNamespaceForApp(appName: string) {
 	const namespaces = await getNamespaceForApp(appName);
 
 	if (!namespaces.length) {
@@ -72,6 +81,7 @@ export async function getOrSelectNamespace(appName: string) {
 			{
 				type: "list",
 				name: "podName",
+				pageSize: 20,
 				choices: namespaces.map((namespace: string) => {
 					return {
 						value: namespace,
@@ -83,6 +93,40 @@ export async function getOrSelectNamespace(appName: string) {
 
 		return namespace;
 	}
+}
+
+/**
+ * Renders a list where user can select namespace.
+ * @returns
+ */
+export async function selectNamespace({
+	message,
+	frusterNamespace = false,
+}: {
+	message: string;
+	frusterNamespace?: boolean;
+}) {
+	let allNamespaces = await getNamespaces();
+
+	if (frusterNamespace) {
+		allNamespaces = allNamespaces.filter((ns) => !!(ns.metadata.labels || {})["fruster"]);
+	}
+
+	const { namespace } = await inquirer.prompt([
+		{
+			type: "list",
+			name: "namespace",
+			pageSize: 20,
+			choices: allNamespaces.map((ns) => {
+				return {
+					value: ns.metadata.name,
+				};
+			}),
+			message,
+		},
+	]);
+
+	return namespace;
 }
 
 export function sleep(ms: number) {
@@ -232,8 +276,8 @@ export async function editConfigInEditor(config: { [x: string]: string }, additi
 	const updatedConfig: { [x: string]: string } = {};
 
 	for (const split of configRowSplits) {
-		const key = split[0];
-		const value = split[1];
+		const [key, ...values] = split;
+		const value = values.join("=");
 
 		if (key && value) {
 			updatedConfig[key] = value;

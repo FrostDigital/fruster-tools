@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { program } from "commander";
 import { updateImage } from "../actions/update-image";
-import { validateRequiredArg, getOrSelectNamespace } from "../utils/cli-utils";
+import { validateRequiredArg, getOrSelectNamespaceForApp } from "../utils/cli-utils";
 
 program
 	.description(
@@ -29,7 +29,7 @@ validateRequiredArg(imageTag, program, "Missing image tag");
 
 async function run() {
 	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
+		namespace = await getOrSelectNamespaceForApp(serviceName);
 	}
 
 	await updateImage(serviceName, namespace, imageTag, !skipVerify);

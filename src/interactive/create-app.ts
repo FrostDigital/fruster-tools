@@ -3,16 +3,7 @@ import { createFrusterNamespace } from "../actions/create-fruster-namespace";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import * as dockerHubClient from "../docker/DockerHubClient";
 import * as dockerRegistryClient from "../docker/DockerRegistryClient";
-import {
-	createAppDeployment,
-	createNamespace,
-	ensureServiceForApp,
-	getConfigMap,
-	getPods,
-	getSecret,
-	setConfig,
-} from "../kube/kube-client";
-import { GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME } from "../kube/kube-templates";
+import { createAppDeployment, ensureServiceForApp, getPods } from "../kube/kube-client";
 import * as log from "../log";
 import { Registry } from "../models/Registry";
 import { ensureLength } from "../utils";
@@ -97,9 +88,6 @@ export async function createApp() {
 	// Ensure namespace (it will not be created if already existing)
 	await createFrusterNamespace(namespace);
 
-	// Create config
-	const appConfigSecret = await setConfig(namespace, name, parsedConfig);
-
 	await createAppDeployment(
 		namespace,
 		{
@@ -115,7 +103,6 @@ export async function createApp() {
 			changeCause: user + " created app using fruster cli",
 			hasGlobalConfig: true,
 			hasGlobalSecrets: true,
-			configName: appConfigSecret.metadata.name,
 		}
 	);
 

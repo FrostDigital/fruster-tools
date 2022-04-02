@@ -4,7 +4,7 @@ import moment from "moment";
 import { terminal } from "terminal-kit";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import { getLogs } from "../actions/get-logs";
-import { updateConfig } from "../actions/update-config";
+import { configRowsToObj, updateConfig } from "../actions/update-config";
 import { updateImage } from "../actions/update-image";
 import * as dockerHubClient from "../docker/DockerHubClient";
 import * as dockerRegistryClient from "../docker/DockerRegistryClient";
@@ -13,7 +13,6 @@ import {
 	deleteSecret,
 	deleteService,
 	ensureServiceForApp,
-	getConfig,
 	getConfigMap,
 	getConfigNameFromServiceName,
 	getDeployment,
@@ -22,7 +21,6 @@ import {
 	getSecret,
 	getService,
 	scaleDeployment,
-	setConfig,
 	updateConfigMap,
 	updateDeployment,
 } from "../kube/kube-client";
@@ -42,6 +40,7 @@ import {
 	printTable,
 	sleep,
 } from "../utils/cli-utils";
+import { getDeploymentAppConfig } from "../utils/kube-utils";
 import {
 	humanReadableResources,
 	maskStr,
@@ -52,6 +51,8 @@ import {
 } from "../utils/string-utils";
 import { createApp } from "./create-app";
 import { backChoice, lockEsc, popScreen, pushScreen, separator } from "./engine";
+import { exportApps } from "./export-apps";
+import { importApps } from "./import-apps";
 
 // @ts-ignore: Does not exist in typings
 const { NumberPrompt } = enquirer;
@@ -82,6 +83,9 @@ export async function apps() {
 				...deploymentsChoices,
 				separator,
 				{ message: chalk.green("+ Create app"), name: "createApp" },
+				{ message: chalk.magentaBright("> Sync with service registry"), name: "importApps" },
+				{ message: chalk.magentaBright("< Export service registry"), name: "exportApps" },
+				separator,
 				backChoice,
 			],
 		},
@@ -92,6 +96,16 @@ export async function apps() {
 	} else if (app === "createApp") {
 		pushScreen({
 			render: createApp,
+			escAction: "back",
+		});
+	} else if (app === "importApps") {
+		pushScreen({
+			render: importApps,
+			escAction: "back",
+		});
+	} else if (app === "exportApps") {
+		pushScreen({
+			render: exportApps,
 			escAction: "back",
 		});
 	} else if (app) {
@@ -162,6 +176,7 @@ async function viewApp(deployment: Deployment) {
 				}`,
 				name: "addSsl",
 			},
+			separator,
 			{
 				message: chalk.red("Delete app"),
 				name: "delete",
@@ -302,17 +317,15 @@ async function showInfo(deployment: any) {
 	popScreen();
 }
 
-async function editConfig(deployment: any) {
+async function editConfig(deployment: Deployment) {
 	const { name, namespace } = deployment.metadata;
-	let config = await getConfig(namespace, name);
+
+	// Refresh deployment
+	deployment = (await getDeployment(namespace, name)) as Deployment;
+
+	const { config } = getDeploymentAppConfig(deployment);
 
 	terminal.defaultColor("> Showing config for ").green(name + "\n\n");
-
-	if (!config) {
-		log.warn(`Could not find config for '${name}.${namespace}', creating empty config...\n`);
-		await setConfig(namespace, name, {});
-		config = {};
-	}
 
 	const globalConfig = await getConfigMap(namespace, GLOBAL_CONFIG_NAME);
 	const globalSecrets = await getSecret(namespace, GLOBAL_SECRETS_NAME);
@@ -338,7 +351,7 @@ async function editConfig(deployment: any) {
 		);
 	}
 
-	tableData.push(...Object.keys(config).map((k) => [chalk.bold(chalk.cyan(k)), config![k]]));
+	tableData.push(...config.map((c) => [chalk.bold(chalk.cyan(c.name)), c.value || " "]));
 
 	printTable(tableData, tableHeaders, true);
 
@@ -367,7 +380,7 @@ async function editConfig(deployment: any) {
 		pushScreen({
 			escAction: "back",
 			render: doEditConfig,
-			props: { deployment, config },
+			props: { deployment, config: configRowsToObj(config) },
 		});
 	} else if (configAction === "editGlobalConfig") {
 		pushScreen({
@@ -398,7 +411,11 @@ async function doEditConfig({ deployment, config, isGlobal }: { deployment: any;
 					configMap(namespace, GLOBAL_CONFIG_NAME, updatedConfig)
 				);
 			} else {
-				await updateConfig(name, namespace, updatedConfig);
+				await updateConfig({
+					serviceName: name,
+					namespace,
+					set: updatedConfig,
+				});
 			}
 			console.log();
 			log.success(`✅ Config was updated`);
@@ -612,6 +629,7 @@ async function resources(deployment: Deployment) {
 	} else {
 		deployment.spec.template.spec.containers[0].resources = newResourcesK8s;
 		await updateDeployment(namespace, name, deployment);
+		await sleep(2000);
 		log.success("✅ Resources limits has been updated");
 		await pressEnterToContinue();
 		popScreen();
@@ -658,9 +676,12 @@ async function addDomain({ deployment, existingDomains }: { deployment: Deployme
 		parsedDomains = [...existingDomains.split(","), ...parsedDomains];
 	}
 
-	let config = await getConfig(namespace, name);
+	const { config } = getDeploymentAppConfig(deployment);
 
-	if (!config?.PORT) {
+	const configMap = configRowsToObj(config);
+	// let config = await getConfig(namespace, name);
+
+	if (!configMap?.PORT) {
 		log.warn(`App is missing config PORT which is required to make app routable`);
 
 		const { port } = await enquirer.prompt<{ port: number }>({
@@ -671,18 +692,18 @@ async function addDomain({ deployment, existingDomains }: { deployment: Deployme
 			validate: (val) => !Number.isNaN(val) && Number(val) > 0,
 		});
 
-		config = { ...config, PORT: String(port) };
-
-		await setConfig(namespace, name, config);
+		await updateConfig({ namespace, serviceName: name, add: { PORT: String(port) } });
 	}
 
-	await ensureServiceForApp(namespace, { name, domains: parsedDomains, port: config.PORT });
+	await ensureServiceForApp(namespace, { name, domains: parsedDomains, port: configMap.PORT });
 
 	console.log();
 	log.success("✅ Domain(s) was updated");
 	console.log(
 		chalk.dim(
-			`Any TCP traffic to domain(s) ${parsedDomains.join(", ")} will be routed to the app on port ${config.PORT}`
+			`Any TCP traffic to domain(s) ${parsedDomains.join(", ")} will be routed to the app on port ${
+				configMap.PORT
+			}`
 		)
 	);
 	console.log();
@@ -707,15 +728,19 @@ async function removeDomain({
 
 	if (!confirm) return popScreen();
 
-	const config = await getConfig(namespace, name);
+	// const config = await getConfig(namespace, name);
 
-	if (!config) {
-		throw new Error("Missing config for app");
-	}
+	// if (!config) {
+	// 	throw new Error("Missing config for app");
+	// }
+
+	const { config } = getDeploymentAppConfig(deployment);
+
+	const configMap = configRowsToObj(config);
 
 	let updatedDomains = existingDomains.split(",").filter((d) => d !== domain);
 
-	await ensureServiceForApp(namespace, { name, domains: updatedDomains, port: config.PORT });
+	await ensureServiceForApp(namespace, { name, domains: updatedDomains, port: configMap.PORT });
 
 	console.log();
 	log.success(`✅ Domain ${domain} was removed`);

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 const program = require("commander").program;
-const { getConfig } = require("../kube/kube-client");
+const { getDeployment } = require("../kube/kube-client");
 const log = require("../log");
-const { validateRequiredArg, getOrSelectNamespace } = require("../utils/cli-utils");
+const { validateRequiredArg, getOrSelectNamespaceForApp } = require("../utils/cli-utils");
+const { getDeploymentAppConfig } = require("../utils/kube-utils");
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
@@ -28,20 +29,22 @@ validateRequiredArg(app, program, "Missing app name");
 async function run() {
 	try {
 		if (!namespace) {
-			namespace = await getOrSelectNamespace(app);
+			namespace = await getOrSelectNamespaceForApp(app);
 		}
 
-		const config = await getConfig(namespace, app);
+		const deployment = await getDeployment(namespace, app);
 
-		if (!config) {
-			log.warn(`Could not find config for '${app}', does the app exist?`);
+		if (!deployment) {
+			log.warn(`Could not find deployment for '${app}'`);
 			return process.exit(1);
 		}
 
+		const { config } = getDeploymentAppConfig(deployment);
+
 		log.success(`Got config for app ${app}`);
 
-		for (const key in config) {
-			log.info(`${key}="${config[key]}"`);
+		for (const row of config) {
+			log.info(`${row.name}="${row.value}"`);
 		}
 	} catch (err) {
 		console.log(err);

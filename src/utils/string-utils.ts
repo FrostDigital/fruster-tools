@@ -81,12 +81,17 @@ export const parseStringConfigToObj = (str: string) => {
 
 export function prettyPrintPods(pods: any[]) {
 	const podInfo = pods.map((pod: any, i: number) => {
-		const [lastContainerStatus] = pod.status.containerStatuses;
+		const [lastContainerStatus] = pod.status.containerStatuses || [];
 		const { imageName, imageTag } = parseImage(pod.spec.containers[0].image);
-		const { state } = lastContainerStatus;
 
 		let containerStatusDescription = " ";
 		let since = " ";
+
+		if (!lastContainerStatus) {
+			return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, since, containerStatusDescription];
+		}
+
+		const { state } = lastContainerStatus;	;
 
 		if (state.waiting && ["ImagePullBackOff", "ErrImagePull"].includes(state.waiting.reason)) {
 			containerStatusDescription = `Failed to pull image ${imageName}:${imageTag}`;
@@ -103,6 +108,8 @@ export function prettyPrintPods(pods: any[]) {
 		}
 
 		return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, since, containerStatusDescription];
+
+
 	});
 
 	if (podInfo.length) {
@@ -166,4 +173,18 @@ export function validateCpuResource(str: string) {
 
 export function maskStr(str: string) {
 	return str.replace(/./g, "*");
+}
+
+
+const PRIVATE_REG_REGEXP = /(.*.com)\/.*/;
+
+export function getDockerRegistry(fullImageUrl: string) {
+	const res = fullImageUrl.match(PRIVATE_REG_REGEXP);
+
+	if (res) {
+		return res[1];
+	}
+
+	return undefined;
+
 }
