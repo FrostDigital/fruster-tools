@@ -11,7 +11,7 @@ Scale application.
 
 Example:
 
-$ fruster scale -r 2 -a api-gateway
+$ fctl scale -r 2 -a api-gateway
 `
 	)
 	.option("-r, --replicas <replicas>", "number of replicas")

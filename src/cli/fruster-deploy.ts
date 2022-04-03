@@ -10,7 +10,7 @@ Deploy a new tag/version of an existing app.
 
 Example:
 
-$ fruster deploy 1.0.1 -a api-gateway
+$ fctl deploy 1.0.1 -a api-gateway
 `
 	)
 	.option("-n, --namespace <namespace>", "kubernetes namespace service is in")

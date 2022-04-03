@@ -18,7 +18,7 @@ Namespace will be created if it does not already exists.
 Examples:
 
 # Creates deployments for services that are defined in service registry json file
-$ fruster create -s services.json -n my-namespace
+$ fctl create -s services.json -n my-namespace
 `
 	)
 	.option("-y, --yes", "perform the change, otherwise just dry run, only applicable in non interactive mode")
@@ -35,7 +35,7 @@ const app = program.opts().app;
 async function run() {
 	if (!app && !serviceRegPath) {
 		log.error(
-			`\nEither --service-registry or --app must be set\n\nExamples:\n$ fruster create -a my-app -n my-namespace\n$ fruster create --service-registry services.json -n my-namespace`
+			`\nEither --service-registry or --app must be set\n\nExamples:\n$ fctl create -a my-app -n my-namespace\n$ fctl create --service-registry services.json -n my-namespace`
 		);
 		process.exit(1);
 	}

@@ -1,7 +1,5 @@
 const path = require("path");
 
-process.env.FRUSTER_HOME = path.join(__dirname, ".tmp-fruster-home");
-
 const svcReg = require("../src/service-registry/service-registry-factory");
 
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 30 * 1000;

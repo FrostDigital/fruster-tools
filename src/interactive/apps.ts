@@ -2,6 +2,7 @@ import chalk from "chalk";
 import enquirer from "enquirer";
 import moment from "moment";
 import { terminal } from "terminal-kit";
+import { followLogs } from "../actions/follow-logs";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import { getLogs } from "../actions/get-logs";
 import { configRowsToObj, updateConfig } from "../actions/update-config";
@@ -40,9 +41,15 @@ import {
 	printTable,
 	sleep,
 } from "../utils/cli-utils";
-import { getDeploymentAppConfig } from "../utils/kube-utils";
 import {
+	getDeploymentAppConfig,
+	getDeploymentContainerResources,
+	getDeploymentImage,
+	getNameAndNamespaceOrThrow,
 	humanReadableResources,
+	updateDeploymentContainerResources,
+} from "../utils/kube-utils";
+import {
 	maskStr,
 	parseImage,
 	prettyPrintPods,
@@ -64,10 +71,10 @@ export async function apps() {
 	clearScreen();
 
 	const deploymentsChoices = deployments.items.map((d) => ({
-		message: `${ensureLength(d.metadata.name, 40)} ${ensureLength(d.metadata.namespace, 20)} ${
+		message: `${ensureLength(d.metadata?.name, 40)} ${ensureLength(d.metadata?.namespace, 20)} ${
 			d.status?.readyReplicas || 0
-		}/${d.spec.replicas}`,
-		name: d.metadata.namespace + "." + d.metadata.name,
+		}/${d.spec?.replicas}`,
+		name: d.metadata?.namespace + "." + d.metadata?.name,
 	}));
 
 	log.info(
@@ -109,7 +116,7 @@ export async function apps() {
 			escAction: "back",
 		});
 	} else if (app) {
-		const deployment = deployments.items.find((d) => d.metadata.namespace + "." + d.metadata.name === app);
+		const deployment = deployments.items.find((d) => d.metadata?.namespace + "." + d.metadata?.name === app);
 
 		pushScreen({
 			props: deployment,
@@ -122,15 +129,14 @@ export async function apps() {
 async function viewApp(deployment: Deployment) {
 	console.log("Gathering app details...");
 
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	deployment = (await getDeployment(namespace, name)) as Deployment;
 	const service = await getService(namespace, name);
 
 	clearScreen();
 
-	const container = deployment.spec.template.spec.containers[0];
-	const { imageTag } = parseImage(container.image);
+	const { imageTag } = parseImage(getDeploymentImage(deployment));
 
 	terminal.defaultColor("> Selected app ").green(name + "\n\n");
 
@@ -145,6 +151,10 @@ async function viewApp(deployment: Deployment) {
 				name: "info",
 			},
 			{
+				message: "Logs",
+				name: "logs",
+			},
+			{
 				message: `${ensureLength("Config", 25)}`,
 				name: "config",
 			},
@@ -153,12 +163,12 @@ async function viewApp(deployment: Deployment) {
 				name: "version",
 			},
 			{
-				message: `${ensureLength("Scale", 25)} ${chalk.magenta(deployment.spec.replicas + " replica(s)")}`,
+				message: `${ensureLength("Scale", 25)} ${chalk.magenta(deployment.spec?.replicas + " replica(s)")}`,
 				name: "scale",
 			},
 			{
 				message: `${ensureLength("Domains", 25)} ${
-					service?.metadata.annotations
+					service?.metadata?.annotations
 						? chalk.magenta(service.metadata.annotations[DOMAINS_ANNOTATION])
 						: chalk.dim("Not routable")
 				}`,
@@ -170,7 +180,7 @@ async function viewApp(deployment: Deployment) {
 			},
 			{
 				message: `${ensureLength("Add SSL cert", 25)} ${
-					service?.metadata.annotations
+					service?.metadata?.annotations
 						? chalk.magenta(service?.metadata.annotations["router.deis.io/certificates"] || "none")
 						: ""
 				}`,
@@ -248,14 +258,21 @@ async function viewApp(deployment: Deployment) {
 		case "delete":
 			deleteApp(deployment);
 			break;
+		case "logs":
+			pushScreen({
+				render: viewLogs,
+				props: deployment,
+				//escAction: "back",
+			});
+			break;
 		default:
 			popScreen();
 			break;
 	}
 }
 
-async function showInfo(deployment: any) {
-	const { name, namespace } = deployment.metadata;
+async function showInfo(deployment: Deployment) {
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	log.info(`Loading ${name} configuration...`);
 
@@ -268,35 +285,35 @@ async function showInfo(deployment: any) {
 	terminal.defaultColor("> Showing details for ").green(name + "\n\n");
 
 	// Deep dive into objects to pin point relevant data
-	const { creationTimestamp, annotations } = deployment.metadata;
-	const container = deployment.spec.template.spec.containers[0];
-	const { limits, requests } = container.resources;
+	const { creationTimestamp, annotations } = deployment.metadata || {};
+	const container = deployment.spec?.template.spec?.containers[0];
+	const { limits, requests } = container?.resources || {};
 	const creation = moment(creationTimestamp);
-	const { imageName, imageTag } = parseImage(container.image);
+	const { imageName, imageTag } = parseImage(getDeploymentImage(deployment));
 
-	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations;
+	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations || {};
 
-	const domains = service?.metadata.annotations ? service.metadata.annotations[DOMAINS_ANNOTATION] : "";
+	const domains = service?.metadata?.annotations ? service.metadata.annotations[DOMAINS_ANNOTATION] : "";
 
 	const tableModel = [];
 	tableModel.push(
 		["Namespace:", namespace],
 		["Created:", `${creation.format("YYYY-MM-DD HH:mm")} (${creation.fromNow()})`],
 		["", ""],
-		["Routable:", service ? `Yes, port ${service.spec.ports[0].targetPort}` : "Not routable"],
+		["Routable:", service ? `Yes, port ${(service.spec?.ports || [])[0].targetPort}` : "Not routable"],
 		["Domain(s):", domains],
 		["", ""],
 		["Image:", imageName],
 		["Image tag:", imageTag],
 		["", ""],
-		["Replicas:", deployment.spec.replicas],
-		["Ready replicas:", deployment.status.readyReplicas || 0],
-		["Unavailable replicas:", deployment.status.unavailableReplicas || 0],
+		["Replicas:", deployment.spec?.replicas || ""],
+		["Ready replicas:", deployment.status?.readyReplicas || 0],
+		["Unavailable replicas:", deployment.status?.unavailableReplicas || 0],
 		["", ""],
-		["CPU request:", requests.cpu],
-		["CPU limit:", limits.cpu],
-		["Memory request:", requests.memory],
-		["Memory limit:", limits.memory],
+		["CPU request:", requests?.cpu || "n/a"],
+		["CPU limit:", limits?.cpu || "n/a"],
+		["Memory request:", requests?.memory || "n/a"],
+		["Memory limit:", limits?.memory || "n/a"],
 		["", ""],
 		["Liveness healthcheck:", livenesHealthcheck || "none"],
 		["", ""]
@@ -318,7 +335,7 @@ async function showInfo(deployment: any) {
 }
 
 async function editConfig(deployment: Deployment) {
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	// Refresh deployment
 	deployment = (await getDeployment(namespace, name)) as Deployment;
@@ -498,9 +515,10 @@ async function scale(deployment: any) {
 }
 
 async function changeDomains(deployment: Deployment) {
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
+
 	const service = await getService(namespace, name);
-	const domains = (service?.metadata.annotations || {})[DOMAINS_ANNOTATION] || "";
+	const domains = (service?.metadata?.annotations || {})[DOMAINS_ANNOTATION] || "";
 
 	if (!domains) {
 		console.log(chalk.dim("App is not routable"));
@@ -560,7 +578,7 @@ async function changeDomains(deployment: Deployment) {
 }
 
 async function resources(deployment: Deployment) {
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	console.log();
 	console.log(
@@ -576,7 +594,7 @@ async function resources(deployment: Deployment) {
 	);
 	console.log();
 
-	const existingResources: Resources | undefined = deployment.spec.template.spec.containers[0].resources;
+	const existingResources = getDeploymentContainerResources(deployment);
 
 	const newResources = await formPrompt<{ cpuReq: string; cpuLimit: string; memReq: string; memLimit: string }>({
 		message: "Set resource limit and requests",
@@ -627,7 +645,7 @@ async function resources(deployment: Deployment) {
 		await pressEnterToContinue();
 		popScreen();
 	} else {
-		deployment.spec.template.spec.containers[0].resources = newResourcesK8s;
+		updateDeploymentContainerResources(deployment, newResourcesK8s);
 		await updateDeployment(namespace, name, deployment);
 		await sleep(2000);
 		log.success("✅ Resources limits has been updated");
@@ -639,7 +657,7 @@ async function resources(deployment: Deployment) {
 async function addDomain({ deployment, existingDomains }: { deployment: Deployment; existingDomains: string }) {
 	lockEsc();
 
-	const { namespace, name } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	if (!existingDomains) {
 		console.log();
@@ -722,17 +740,11 @@ async function removeDomain({
 }) {
 	lockEsc();
 
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	const confirm = await confirmPrompt(`Are you sure you want to remove domain ${domain}?`);
 
 	if (!confirm) return popScreen();
-
-	// const config = await getConfig(namespace, name);
-
-	// if (!config) {
-	// 	throw new Error("Missing config for app");
-	// }
 
 	const { config } = getDeploymentAppConfig(deployment);
 
@@ -752,7 +764,7 @@ async function removeDomain({
 async function makeNonRoutable(deployment: Deployment) {
 	lockEsc();
 
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	const confirm = await confirmPrompt(`Are you sure you want to make app non routable?`);
 
@@ -771,7 +783,7 @@ async function makeNonRoutable(deployment: Deployment) {
 }
 
 async function deleteApp(deployment: Deployment) {
-	const { name, namespace } = deployment.metadata;
+	const { name, namespace } = getNameAndNamespaceOrThrow(deployment);
 
 	const confirm = await confirmPrompt("Are you sure you want to delete the app?");
 
@@ -790,5 +802,13 @@ async function deleteApp(deployment: Deployment) {
 }
 
 async function addSsl(deployment: Deployment) {
+	// TODO
+	popScreen();
+}
+
+async function viewLogs(deployment: Deployment) {
+	lockEsc();
+	const { namespace, name } = getNameAndNamespaceOrThrow(deployment);
+	await followLogs(namespace, name);
 	popScreen();
 }

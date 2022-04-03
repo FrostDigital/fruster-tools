@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import enquirer from "enquirer";
 import { getDockerRegistries } from "../actions/get-docker-registries";
-import { configRowsToObj, updateConfig } from "../actions/update-config";
+import { configRowsToObj, objToConfigRows, updateConfig } from "../actions/update-config";
 import {
 	createAppDeployment,
 	deleteService,
@@ -26,6 +26,7 @@ import {
 	enableFrusterHealth,
 	getDeploymentAppConfig,
 	getDeploymentImage,
+	getNameAndNamespaceOrThrow,
 	hasFrusterHealth,
 	setDeploymentImage,
 } from "../utils/kube-utils";
@@ -61,10 +62,10 @@ export async function importApps() {
 
 	const namespace = await selectNamespace({
 		message: "Select namespace app(s) should be created in",
-		frusterNamespace: true,
+		fctlAppNamespace: true,
 	});
 
-	await syncGlobalConfig(namespace, svcReg, true);
+	const hasGlobalConfigChanged = await syncGlobalConfig(namespace, svcReg, true);
 
 	const existingDeployments = await getDeployments(namespace);
 
@@ -78,7 +79,7 @@ export async function importApps() {
 
 	const { appsToCreate, appsToSync } = svcReg.services.reduce<ReduceType>(
 		(out, app) => {
-			const deployment = existingDeployments.items.find((item) => item.metadata.name === app.name);
+			const deployment = existingDeployments.items.find((item) => item.metadata?.name === app.name);
 
 			if (deployment) {
 				out.appsToSync.push({
@@ -99,13 +100,27 @@ export async function importApps() {
 
 	const appToSyncWithChanges: { deployment: Deployment; app: AppManifest }[] = [];
 
+	for (const app of appsToCreate) {
+		console.log(chalk.bold(`[${app.name}] Will create app ${app.name}`));
+		console.log(`[${app.name}] Image ${app.image}`);
+		console.log(`[${app.name}] Routable ${app.routable ? "yes" : "no"} ${(app.domains || []).join(", ")}`);
+		console.log(
+			`[${app.name}] Resources (request/limit) cpu ${app.resources?.cpu || "n/a"} ${app.resources?.mem || "n/a"}`
+		);
+		console.log(`[${app.name}] Liveness health check ${app.livenessHealthCheck || "n/a"}`);
+
+		for (const row of objToConfigRows(app.env)) {
+			console.log(`[${app.name}] ${row.name}=${row.value}`);
+		}
+	}
+
 	for (const app of appsToSync) {
 		if (await syncConfigurationForApp(namespace, app.app, app.deployment, true)) {
 			appToSyncWithChanges.push(app);
 		}
 	}
 
-	if (appsToCreate.length === 0 && appToSyncWithChanges.length === 0) {
+	if (appsToCreate.length === 0 && appToSyncWithChanges.length === 0 && !hasGlobalConfigChanged) {
 		console.log("No changes, everything is in sync 👍");
 		await pressEnterToContinue();
 		popScreen();
@@ -114,7 +129,9 @@ export async function importApps() {
 
 	if (
 		!(await confirmPrompt(
-			`Do you want to create ${appsToCreate.length} app(s) and update ${appToSyncWithChanges.length} app(s)?`,
+			`Do you want to create ${appsToCreate.length} app(s) and update ${
+				appToSyncWithChanges.length
+			} app(s) (global config changed ${hasGlobalConfigChanged ? "yes" : "no"})?`,
 			false
 		))
 	) {
@@ -189,6 +206,7 @@ async function syncConfigurationForApp(
 	// globalConfig: ConfigMap | null,
 	preview: boolean
 ) {
+	const { name } = getNameAndNamespaceOrThrow(deployment);
 	let hasChange = false;
 	const service = await getService(namespace, appManifest.name);
 
@@ -268,7 +286,7 @@ async function syncConfigurationForApp(
 	// TODO: resources
 
 	if (!preview) {
-		await updateDeployment(namespace, deployment.metadata.name, updatedDeployment);
+		await updateDeployment(namespace, name, updatedDeployment);
 	} else if (hasChange) {
 		console.log(chalk.red(`[${appManifest.name}] Has change(s)`));
 	} else {
@@ -287,6 +305,7 @@ async function syncGlobalConfig(namespace: string, svcReg: ServiceRegistry, prev
 	}
 
 	if (globalConfig) {
+		globalConfig.data = globalConfig?.data || {};
 		const updatedConfig = mergeConfig("Global config", globalConfig.data, svcReg.globalEnv || {}, true);
 
 		if (updatedConfig) {
@@ -295,8 +314,11 @@ async function syncGlobalConfig(namespace: string, svcReg: ServiceRegistry, prev
 			} else {
 				// TODO
 			}
+			return true;
 		} else if (preview) {
 			console.log(chalk.green(`Global config is up to date`));
 		}
 	}
+
+	return false;
 }

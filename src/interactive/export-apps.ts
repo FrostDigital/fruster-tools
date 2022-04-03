@@ -6,7 +6,12 @@ import { DOMAINS_ANNOTATION, FRUSTER_LIVENESS_ANNOTATION } from "../kube/kube-co
 import { GLOBAL_CONFIG_NAME } from "../kube/kube-templates";
 import { AppManifest, ServiceRegistryModel } from "../models/ServiceRegistryModel";
 import { confirmPrompt, pressEnterToContinue, selectNamespace } from "../utils/cli-utils";
-import { getDeploymentAppConfig } from "../utils/kube-utils";
+import {
+	getDeploymentAppConfig,
+	getDeploymentContainerResources,
+	getDeploymentImage,
+	getNameAndNamespaceOrThrow,
+} from "../utils/kube-utils";
 import { popScreen } from "./engine";
 
 /**
@@ -15,7 +20,7 @@ import { popScreen } from "./engine";
 export async function exportApps() {
 	const ns = await selectNamespace({
 		message: "Select namespace",
-		frusterNamespace: true,
+		fctlAppNamespace: true,
 	});
 
 	// const includeSecrets = await confirmPrompt("Do you want to include secrets?", false);
@@ -29,10 +34,12 @@ export async function exportApps() {
 	const apps: AppManifest[] = [];
 
 	for (const deployment of deployments.items) {
-		const svc = await getService(ns, deployment.metadata.name);
-		const domains = svc ? ((svc.metadata.annotations || {})[DOMAINS_ANNOTATION] || "").split(",") : undefined;
+		const { name } = getNameAndNamespaceOrThrow(deployment);
 
-		const resources = deployment.spec.template.spec.containers[0].resources;
+		const svc = await getService(ns, name);
+		const domains = svc ? ((svc.metadata?.annotations || {})[DOMAINS_ANNOTATION] || "").split(",") : undefined;
+
+		const resources = getDeploymentContainerResources(deployment);
 		let appResources: AppManifest["resources"] = undefined;
 
 		if (resources) {
@@ -42,13 +49,13 @@ export async function exportApps() {
 			};
 		}
 
-		const hasFrusterHealth = !!(deployment.metadata.annotations || {})[FRUSTER_LIVENESS_ANNOTATION];
+		const hasFrusterHealth = !!(deployment.metadata?.annotations || {})[FRUSTER_LIVENESS_ANNOTATION];
 
 		const { config } = getDeploymentAppConfig(deployment);
 
 		apps.push({
-			name: deployment.metadata.name,
-			image: deployment.spec.template.spec.containers[0].image,
+			name,
+			image: getDeploymentImage(deployment),
 			env: configRowsToObj(config),
 			domains,
 			routable: !!svc,
@@ -59,7 +66,7 @@ export async function exportApps() {
 
 	const serviceReg: ServiceRegistryModel = {
 		name: ns,
-		apiVersion: "1",
+		apiVersion: "2",
 		env: globalEnv,
 		services: apps,
 	};

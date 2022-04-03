@@ -16,7 +16,7 @@ Get config for an app.
 Example:
 
 # Get config for app named api-gateway
-$ fruster config get -a api-gateway -n paceup
+$ fctl config get -a api-gateway -n paceup
 `
 	)
 	.parse(process.argv);

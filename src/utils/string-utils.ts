@@ -81,17 +81,24 @@ export const parseStringConfigToObj = (str: string) => {
 
 export function prettyPrintPods(pods: any[]) {
 	const podInfo = pods.map((pod: any, i: number) => {
-		const [lastContainerStatus] = pod.status.containerStatuses || [];
+		const [lastContainerStatus] = pod.status.containerStatuses || [];
 		const { imageName, imageTag } = parseImage(pod.spec.containers[0].image);
 
 		let containerStatusDescription = " ";
 		let since = " ";
 
 		if (!lastContainerStatus) {
-			return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, since, containerStatusDescription];
+			return [
+				`Pod ${++i}:`,
+				pod.metadata.name,
+				imageTag,
+				`${pod.status.phase}`,
+				since,
+				containerStatusDescription,
+			];
 		}
 
-		const { state } = lastContainerStatus;	;
+		const { state } = lastContainerStatus;
 
 		if (state.waiting && ["ImagePullBackOff", "ErrImagePull"].includes(state.waiting.reason)) {
 			containerStatusDescription = `Failed to pull image ${imageName}:${imageTag}`;
@@ -108,8 +115,6 @@ export function prettyPrintPods(pods: any[]) {
 		}
 
 		return [`Pod ${++i}:`, pod.metadata.name, imageTag, `${pod.status.phase}`, since, containerStatusDescription];
-
-
 	});
 
 	if (podInfo.length) {
@@ -119,7 +124,8 @@ export function prettyPrintPods(pods: any[]) {
 	}
 }
 
-export function ensureLength(str: string, length: number) {
+export function ensureLength(str: string | undefined, length: number) {
+	str = str || "";
 	if (str.length > length) {
 		return str.substring(0, length);
 	}
@@ -127,13 +133,6 @@ export function ensureLength(str: string, length: number) {
 	const padLength = length - str.length;
 
 	return str + new Array(padLength).fill(" ").join("");
-}
-
-export function humanReadableResources(deployment: Deployment) {
-	const resources = deployment.spec.template.spec.containers[0].resources;
-	return `cpu ${resources?.requests?.cpu || "-"}/${resources?.limits?.cpu || "-"}, mem ${
-		resources?.requests?.memory || "-"
-	}/${resources?.limits?.memory || "-"}`;
 }
 
 export function base64decode(str: string) {
@@ -175,7 +174,6 @@ export function maskStr(str: string) {
 	return str.replace(/./g, "*");
 }
 
-
 const PRIVATE_REG_REGEXP = /(.*.com)\/.*/;
 
 export function getDockerRegistry(fullImageUrl: string) {
@@ -186,5 +184,4 @@ export function getDockerRegistry(fullImageUrl: string) {
 	}
 
 	return undefined;
-
 }

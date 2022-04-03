@@ -199,17 +199,17 @@ async function routerSettings(deployment: Deployment) {
 			{
 				message: "Max body size",
 				name: ROUTER_BODY_SIZE_ANNOTATION,
-				initial: deployment.metadata.annotations![ROUTER_BODY_SIZE_ANNOTATION],
+				initial: deployment.metadata?.annotations![ROUTER_BODY_SIZE_ANNOTATION],
 			},
 			{
 				message: "Enforce SSL",
 				name: ROUTER_ENFORCE_SSL_ANNOTATION,
-				initial: deployment.metadata.annotations![ROUTER_ENFORCE_SSL_ANNOTATION] || "false",
+				initial: deployment.metadata?.annotations![ROUTER_ENFORCE_SSL_ANNOTATION] || "false",
 			},
 			{
 				message: "Use proxy protocol",
 				name: ROUTER_USE_PROXY_PROTOCOL_ANNOTATION,
-				initial: deployment.metadata.annotations![ROUTER_USE_PROXY_PROTOCOL_ANNOTATION] || "false",
+				initial: deployment.metadata?.annotations![ROUTER_USE_PROXY_PROTOCOL_ANNOTATION] || "false",
 			},
 		],
 	});
@@ -218,11 +218,11 @@ async function routerSettings(deployment: Deployment) {
 	console.log(JSON.stringify(updatedAnnotations, null, 2));
 
 	await patchDeployment(ROUTER_NAMESPACE, "deis-router", {
-		body: {
-			metadata: {
-				annotations: updatedAnnotations,
-			},
+		// body: {
+		metadata: {
+			annotations: updatedAnnotations,
 		},
+		// },
 	});
 
 	console.log("✅ Settings was updated");
@@ -244,14 +244,21 @@ const KEY_PLACEHOLDER = `-----BEGIN RSA PRIVATE KEY-----
 /* your unencrypted private key here */
 -----END RSA PRIVATE KEY-----`;
 
-async function sslSettings(deployment: Deployment) {
+async function sslSettings() {
 	// https://docs.teamhephy.com/managing-workflow/platform-ssl/#installing-ssl-on-the-deis-router
 
-	const secret = await getSecret("deis", PLATFORM_SSL_SECRET_NAME);
+	let secret = await getSecret("deis", PLATFORM_SSL_SECRET_NAME);
 
 	if (!secret) {
-		await createSecret("deis", platformSslSecret);
+		// @ts-ignore I am lazy
+		secret = await createSecret("deis", platformSslSecret);
+
+		if (!secret) {
+			throw new Error("Failed to create platform secret");
+		}
 	}
+
+	secret.data = secret?.data || {};
 
 	const existingCert = secret ? base64decode(secret.data["tls.crt"]) : CERT_PLACEHOLDER;
 	const existingKey = secret ? base64decode(secret.data["tls.key"]) : KEY_PLACEHOLDER;

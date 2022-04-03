@@ -22,26 +22,26 @@ export async function patchDeploymentWithConfigHash(
 	const configHash = crypto.createHash("sha256").update(JSON.stringify(config)).digest("hex");
 
 	await patchDeployment(namespace, serviceName, {
-		body: {
-			metadata: {
-				annotations: {
-					[CHANGE_CAUSE_ANNOTATION]: changeCause,
-				},
-			},
-			spec: {
-				template: {
-					metadata: { annotations: { configHash } },
-				},
-				containers: [
-					{
-						env: Object.keys(config).map((key) => ({
-							name: key,
-							value: config[key],
-						})),
-					},
-				],
+		// body: {
+		metadata: {
+			annotations: {
+				[CHANGE_CAUSE_ANNOTATION]: changeCause,
 			},
 		},
+		spec: {
+			template: {
+				metadata: { annotations: { configHash } },
+			},
+			containers: [
+				{
+					env: Object.keys(config).map((key) => ({
+						name: key,
+						value: config[key],
+					})),
+				},
+			],
+		},
+		// },
 	});
 }
 

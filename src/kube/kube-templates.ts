@@ -3,6 +3,7 @@ import { Deployment } from "../models/Deployment";
 import { Secret } from "../models/Secret";
 import { Service } from "../models/Service";
 import { base64encode } from "../utils";
+import k8s from "@kubernetes/client-node";
 
 import {
 	FRUSTER_LIVENESS_ANNOTATION,
@@ -44,7 +45,7 @@ export function deployment({
 	imagePullSecret?: string;
 	hasGlobalConfig?: boolean;
 	hasGlobalSecrets?: boolean;
-}): Deployment {
+}): k8s.V1Deployment {
 	const [memReq, memLimit] = (resources.mem || DEFAULT_MEM_RESOURCES).split("/");
 	const [cpuReq, cpuLimit] = (resources.cpu || DEFAULT_CPU_RESOURCES).split("/");
 
@@ -60,7 +61,7 @@ export function deployment({
 					successThreshold: 1,
 					timeoutSeconds: 50,
 			  }
-			: null;
+			: undefined;
 
 	const envFrom = [];
 
@@ -92,7 +93,7 @@ export function deployment({
 			name: appName,
 			namespace,
 			labels: {
-				fruster: "true",
+				fctl: "true",
 				app: appName,
 			},
 			annotations: {
@@ -167,15 +168,14 @@ export function deployment({
 	};
 }
 
-export function namespace(name: string) {
+export function namespace(name: string, fctlLabel = true) {
+	const labels = fctlLabel ? { fctl: "true" } : undefined;
 	return {
 		apiVersion: "v1",
 		kind: "Namespace",
 		metadata: {
 			name,
-			labels: {
-				fruster: "true",
-			},
+			labels,
 		},
 	};
 }
@@ -188,7 +188,7 @@ export function appConfigMap(namespace: string, serviceName: string, config: any
 		metadata: {
 			labels: {
 				app: serviceName,
-				fruster: "true",
+				fctl: "true",
 			},
 			name: serviceName + "-config",
 			namespace,
@@ -207,7 +207,7 @@ export function secret(namespace: string, name: string, config: any): Secret {
 		kind: "Secret",
 		metadata: {
 			labels: {
-				fruster: "true",
+				fctl: "true",
 			},
 			name,
 			namespace,
@@ -223,7 +223,7 @@ export function configMap(namespace: string, name: string, config: any): ConfigM
 		kind: "ConfigMap",
 		metadata: {
 			labels: {
-				fruster: "true",
+				fctl: "true",
 			},
 			name,
 			namespace,

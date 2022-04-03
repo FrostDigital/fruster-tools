@@ -2,7 +2,6 @@ import chalk from "chalk";
 import enquirer from "enquirer";
 import { advanced } from "./advanced";
 import { apps } from "./apps";
-import { createApp } from "./create-app";
 import { pushScreen, separator } from "./engine";
 import { namespaces } from "./namespaces";
 import { registries } from "./registries";
@@ -16,7 +15,7 @@ export async function start() {
 }
 
 async function renderMainMenu() {
-	console.log(chalk.magenta(`\n Fruster interactive CLI\n`));
+	console.log(chalk.magenta(`\n fctl interactive CLI\n`));
 
 	const { item } = await enquirer.prompt<{ item: string }>([
 		{

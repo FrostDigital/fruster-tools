@@ -10,11 +10,11 @@ import { printTable } from "../utils/cli-utils";
 program
 	.description(
 		`
-Lists all fruster apps.
+Lists all apps.
 
 Examples:
 
-$ fruster apps
+$ fctl apps
 
 `
 	)

@@ -19,7 +19,7 @@ Use this with precaution since most configuration should be persisted in service
 
 Example:
 
-$ fruster config set BUS=nats://localhost:4222 LOG_LEVEL=DEBUG -a api-gateway -n paceup
+$ fctl config set BUS=nats://localhost:4222 LOG_LEVEL=DEBUG -a api-gateway -n paceup
 `
 	)
 	.parse(process.argv);

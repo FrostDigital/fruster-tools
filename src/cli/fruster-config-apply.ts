@@ -9,7 +9,7 @@ import { AppManifest } from "../models/ServiceRegistryModel";
 import { create } from "../service-registry/service-registry-factory";
 import ServiceRegistry from "../service-registry/ServiceRegistry";
 import { mergeConfig } from "../utils/config-utils";
-import { getDeploymentAppConfig } from "../utils/kube-utils";
+import { getDeploymentAppConfig, getDeploymentImage } from "../utils/kube-utils";
 const { validateRequiredArg, getUsername } = require("../utils/cli-utils");
 const moment = require("moment");
 const { FRUSTER_LIVENESS_ANNOTATION } = require("../kube/kube-constants");
@@ -25,13 +25,13 @@ service registry.
 Examples:
 
 # Sets config for all apps defined in service registry
-$ fruster config apply services.json
+$ fctl config apply services.json
 
 # Creates deployments and sets config for all apps defined in service registry
-$ fruster config apply services.json -c
+$ fctl config apply services.json -c
 
 # Recreates deployment and sets config for api-gateway
-$ fruster config apply services.json -r -a api-gateway
+$ fctl config apply services.json -r -a api-gateway
 `
 	)
 	.option("-y, --yes", "perform the change, otherwise just dry run")
@@ -100,14 +100,14 @@ async function run() {
 				log.info(`[${app.name}] Will recreate app...`);
 
 				if (deployment) {
-					const existingContainerSpec = deployment.spec.template.spec.containers[0];
+					const existingImage = getDeploymentImage(deployment);
 					const newImage = app.image + ":" + app.imageTag;
-					if (existingContainerSpec.image !== newImage) {
-						log.info(`[${app.name}] Updating image ${existingContainerSpec.image} -> ${newImage}`);
+					if (existingImage !== newImage) {
+						log.info(`[${app.name}] Updating image ${existingImage} -> ${newImage}`);
 					}
 
 					const existingLivenessHealthCheck =
-						deployment!.metadata.annotations![FRUSTER_LIVENESS_ANNOTATION] || "none";
+						deployment!.metadata?.annotations![FRUSTER_LIVENESS_ANNOTATION] || "none";
 
 					if (app.livenessHealthCheck !== existingLivenessHealthCheck) {
 						log.info(

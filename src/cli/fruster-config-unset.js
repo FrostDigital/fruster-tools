@@ -16,7 +16,7 @@ Removes config from an app.
 
 Example:
 
-$ fruster config unset BUS LOG_LEVEL -a api-gateway -n paceup
+$ fctl config unset BUS LOG_LEVEL -a api-gateway -n paceup
 `
 	)
 	.parse(process.argv);

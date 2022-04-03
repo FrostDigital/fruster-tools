@@ -13,15 +13,20 @@ import { Registry } from "../models/Registry";
 export async function getDockerRegistries(namespace?: string): Promise<Registry[]> {
 	const res = await getSecrets(namespace);
 
-	return (res || [])
+	if (!res) {
+		return [];
+	}
+
+	return res
 		.filter((r) => r.type === "kubernetes.io/dockerconfigjson")
 		.map((r) => {
-			const dockerAuth = JSON.parse(Buffer.from(r.data[".dockerconfigjson"], "base64").toString("ascii"));
+			const data = r.data || {};
+			const dockerAuth = JSON.parse(Buffer.from(data[".dockerconfigjson"], "base64").toString("ascii"));
 			return {
 				dockerAuthToken: dockerAuth.auths[Object.keys(dockerAuth.auths)[0]].auth,
-				secretName: r.metadata.name,
+				secretName: r.metadata?.name!,
 				registryHost: Object.keys(dockerAuth.auths)[0],
-				namespace: r.metadata.namespace,
+				namespace: r.metadata?.namespace!,
 			};
 		});
 }

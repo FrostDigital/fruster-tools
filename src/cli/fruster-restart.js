@@ -13,7 +13,7 @@ Restart application.
 
 Example:
 
-$ fruster restart -a api-gateway
+$ fctl restart -a api-gateway
 `
 	)
 	.option("-r, --replicas <replicas>", "number of replicas")

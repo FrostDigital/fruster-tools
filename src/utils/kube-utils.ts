@@ -1,11 +1,13 @@
 import { Deployment } from "../models/Deployment";
 import { FRUSTER_LIVENESS_ANNOTATION, REQUIRED_ENV_CONFIG } from "../kube/kube-constants";
+import k8s from "@kubernetes/client-node";
 
 export function hasFrusterHealth(deployment: Deployment) {
-	return (deployment.metadata.annotations || {})[FRUSTER_LIVENESS_ANNOTATION] === "fruster-health";
+	return (deployment.metadata?.annotations || {})[FRUSTER_LIVENESS_ANNOTATION] === "fruster-health";
 }
 
 export function enableFrusterHealth(deployment: Deployment) {
+	deployment.metadata = deployment.metadata || {};
 	deployment.metadata.annotations = deployment.metadata.annotations || {};
 	deployment.metadata.annotations[FRUSTER_LIVENESS_ANNOTATION] = "fruster-health";
 
@@ -20,21 +22,27 @@ export function enableFrusterHealth(deployment: Deployment) {
 		timeoutSeconds: 50,
 	};
 
-	deployment.spec.template.spec.containers[0].livenessProbe = livenessProbe;
+	const ctn = getFirstContainerOrThrow(deployment);
+	ctn.livenessProbe = livenessProbe;
 }
 
 export function disableFrusterHealth(deployment: Deployment) {
+	deployment.metadata = deployment.metadata || {};
 	deployment.metadata.annotations = deployment.metadata.annotations || {};
 	delete deployment.metadata.annotations[FRUSTER_LIVENESS_ANNOTATION];
 
-	deployment.spec.template.spec.containers[0].livenessProbe = undefined;
+	const ctn = getFirstContainerOrThrow(deployment);
+
+	ctn.livenessProbe = undefined;
 }
 
 export function getDeploymentAppConfig(deployment: Deployment): {
 	requiredConfig: { name: string; value: string }[];
 	config: { name: string; value: string }[];
 } {
-	const existingConfig = deployment.spec.template.spec.containers[0].env || [];
+	const ctn = getFirstContainerOrThrow(deployment);
+
+	const existingConfig = ctn.env || [];
 
 	return {
 		requiredConfig: existingConfig
@@ -47,16 +55,57 @@ export function getDeploymentAppConfig(deployment: Deployment): {
 }
 
 export function getDeploymentImage(deployment: Deployment) {
-	const [container] = deployment.spec.template.spec.containers || [];
-
-	if (container) {
-		return container.image;
-	}
-
-	return "";
+	const ctn = getFirstContainerOrThrow(deployment);
+	return ctn.image || "";
 }
 
 export function setDeploymentImage(deployment: Deployment, image: string) {
-	deployment.spec.template.spec.containers[0].image = image;
+	const ctn = getFirstContainerOrThrow(deployment);
+	ctn.image = image;
 	return deployment;
+}
+
+export function getDeploymentContainerEnv(deployment: Deployment) {
+	const ctn = getFirstContainerOrThrow(deployment);
+	return ctn.env || [];
+}
+
+export function updateDeploymentContainerEnv(deployment: Deployment, env: k8s.V1Container["env"]) {
+	const ctn = getFirstContainerOrThrow(deployment);
+	ctn.env = env;
+}
+
+export function updateDeploymentContainerResources(deployment: Deployment, resources: k8s.V1ResourceRequirements) {
+	const ctn = getFirstContainerOrThrow(deployment);
+	ctn.resources = resources;
+}
+
+export function getDeploymentContainerResources(deployment: Deployment) {
+	const ctn = getFirstContainerOrThrow(deployment);
+	return ctn.resources;
+}
+
+export function humanReadableResources(deployment: Deployment) {
+	const resources = getDeploymentContainerResources(deployment);
+	return `cpu ${resources?.requests?.cpu || "-"}/${resources?.limits?.cpu || "-"}, mem ${
+		resources?.requests?.memory || "-"
+	}/${resources?.limits?.memory || "-"}`;
+}
+
+export function getNameAndNamespaceOrThrow(resource: Deployment | k8s.V1Service | k8s.V1Pod) {
+	const name = resource.metadata?.name;
+	const namespace = resource.metadata?.namespace;
+
+	if (!name || !namespace) {
+		throw new Error("Missing name and/or namespace for: " + JSON.stringify(resource));
+	}
+
+	return { name, namespace };
+}
+
+function getFirstContainerOrThrow(deployment: Deployment) {
+	if (!deployment.spec?.template.spec?.containers) {
+		throw new Error("Deployment is missig spec.template.spec.containers");
+	}
+	return deployment.spec.template.spec.containers[0];
 }

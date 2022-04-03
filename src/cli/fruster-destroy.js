@@ -3,8 +3,7 @@
 const { program } = require("commander");
 const { deleteDeployment, deleteSecret, deleteService, deleteReplicaSet } = require("../kube/kube-client");
 const log = require("../log");
-const { validateRequiredArg } = require("../utils/cli-utils");
-const inquirer = require("inquirer");
+const { validateRequiredArg, confirmPrompt } = require("../utils/cli-utils");
 
 program
 	.description(
@@ -13,7 +12,7 @@ Removes an app/service and all resources related to it.
 
 Examples:
 
-$ fruster destroy -a api-gateway -n foo
+$ fctl destroy -a api-gateway -n foo
 `
 	)
 	.option("-a, --app <app name>", "Application name")
@@ -28,14 +27,7 @@ validateRequiredArg(namespace, program, "Namespace is required when destroying a
 
 async function run() {
 	try {
-		const { confirm } = await inquirer.prompt([
-			{
-				type: "confirm",
-				name: "confirm",
-				default: false,
-				message: "DANGER: Are you sure you want to remove " + app + "?",
-			},
-		]);
+		const confirm = await confirmPrompt("DANGER: Are you sure you want to remove " + app + "?", false);
 
 		if (confirm) {
 			await deleteDeployment(namespace, app);

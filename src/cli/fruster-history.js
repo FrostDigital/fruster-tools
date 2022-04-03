@@ -15,7 +15,7 @@ Get release history of an app.
 
 Example:
 
-$ fruster history -a api-gateway
+$ fctl history -a api-gateway
 `
 	)
 	.option("-n, --namespace <namespace>", "kubernetes namespace app is in")

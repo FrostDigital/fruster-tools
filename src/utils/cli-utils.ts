@@ -29,7 +29,7 @@ export function validateRequiredArg(argument: string | number, program: Command,
 	}
 }
 
-export function printTable(rows: string[][], header?: string[], border?: boolean) {
+export function printTable(rows: (string | number)[][], header?: string[], border?: boolean) {
 	if (header) {
 		rows = [header, ...rows];
 	}
@@ -51,10 +51,10 @@ export function printTable(rows: string[][], header?: string[], border?: boolean
 			},
 			columns: [
 				{
-					width: 50,
+					width: Math.min(80, Math.round(process.stdout.columns * 0.2)),
 				},
 				{
-					width: 150,
+					width: Math.min(150, Math.round(process.stdout.columns * 0.65)),
 				},
 			],
 			columnDefault: {
@@ -101,15 +101,15 @@ export async function getOrSelectNamespaceForApp(appName: string) {
  */
 export async function selectNamespace({
 	message,
-	frusterNamespace = false,
+	fctlAppNamespace = false,
 }: {
 	message: string;
-	frusterNamespace?: boolean;
+	fctlAppNamespace?: boolean;
 }) {
 	let allNamespaces = await getNamespaces();
 
-	if (frusterNamespace) {
-		allNamespaces = allNamespaces.filter((ns) => !!(ns.metadata.labels || {})["fruster"]);
+	if (fctlAppNamespace) {
+		allNamespaces = allNamespaces.filter((ns) => !!(ns.metadata?.labels || {})["fctl"]);
 	}
 
 	const { namespace } = await inquirer.prompt([
@@ -119,7 +119,7 @@ export async function selectNamespace({
 			pageSize: 20,
 			choices: allNamespaces.map((ns) => {
 				return {
-					value: ns.metadata.name,
+					value: ns.metadata?.name,
 				};
 			}),
 			message,
@@ -142,11 +142,11 @@ export function clearScreen() {
 	process.stdout.write("\x1bc");
 }
 
-export async function pressEnterToContinue() {
+export async function pressEnterToContinue(msg = chalk.dim("\nPress enter to continue")) {
 	return new Promise<string>((resolve) => {
 		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-		rl.question(chalk.dim("\nPress enter to continue"), (a) => {
+		rl.question(msg, (a) => {
 			resolve(a);
 			rl.close();
 		});

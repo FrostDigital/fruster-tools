@@ -18,6 +18,4 @@ program
 	.command("scale", "scale number of replicas of a deployment")
 	.command("destroy", "removes an app")
 	.alias("delete")
-	.command("deis", "deprecated deis commands")
-	.alias("d")
 	.parse(process.argv);
