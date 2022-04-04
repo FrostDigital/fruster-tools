@@ -15,7 +15,7 @@ import { configMap, GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME, secret } from "../k
  * In addition to the namespace also an empty secret and configmap will be
  * created for global secrets and global config.
  */
-export async function createFrusterNamespace(namespaceName: string) {
+export async function createFctlNamespace(namespaceName: string) {
 	const namespace = await getNamespace(namespaceName);
 
 	if (!namespace) {

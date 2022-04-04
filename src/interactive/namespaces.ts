@@ -2,7 +2,7 @@ import chalk from "chalk";
 import deepEqual from "deep-equal";
 import enquirer from "enquirer";
 import { terminal } from "terminal-kit";
-import { createFrusterNamespace } from "../actions/create-fruster-namespace";
+import { createFctlNamespace } from "../actions/create-fctl-namespace";
 import {
 	createConfigMap,
 	createSecret,
@@ -103,7 +103,7 @@ async function createNamespace(existingNamespaces: Namespace[]) {
 	}
 
 	if (await confirmPrompt(`Are you sure you want to create namespace '${trimmedName}'?`, true)) {
-		await createFrusterNamespace(trimmedName);
+		await createFctlNamespace(trimmedName);
 		console.log();
 		log.success("Namespace was created");
 		console.log();

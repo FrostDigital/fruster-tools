@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import enquirer from "enquirer";
-import { createFrusterNamespace } from "../actions/create-fruster-namespace";
+import { createFctlNamespace } from "../actions/create-fctl-namespace";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import * as dockerHubClient from "../docker/DockerHubClient";
 import * as dockerRegistryClient from "../docker/DockerRegistryClient";
@@ -93,7 +93,7 @@ export async function createApp() {
 	}
 
 	// Ensure namespace (it will not be created if already existing)
-	await createFrusterNamespace(namespace);
+	await createFctlNamespace(namespace);
 
 	await createAppDeployment(
 		namespace,
