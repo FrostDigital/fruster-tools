@@ -1,7 +1,6 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import enquirer from "enquirer";
-import inquirer from "inquirer";
 import readline from "readline";
 import { getBorderCharacters, table } from "table";
 import username from "username";
@@ -77,14 +76,14 @@ export async function getOrSelectNamespaceForApp(appName: string) {
 	if (namespaces.length === 1) {
 		return namespaces[0];
 	} else {
-		const { namespace } = await inquirer.prompt([
+		const { namespace } = await enquirer.prompt<{ namespace: string }>([
 			{
-				type: "list",
+				type: "select",
 				name: "podName",
-				pageSize: 20,
 				choices: namespaces.map((namespace: string) => {
 					return {
 						value: namespace,
+						name: namespace,
 					};
 				}),
 				message: "App exists in multiple namespaces, select namespace",
@@ -112,14 +111,14 @@ export async function selectNamespace({
 		allNamespaces = allNamespaces.filter((ns) => !!(ns.metadata?.labels || {})["fctl"]);
 	}
 
-	const { namespace } = await inquirer.prompt([
+	const { namespace } = await enquirer.prompt<{ namespace: string }>([
 		{
-			type: "list",
+			type: "select",
 			name: "namespace",
-			pageSize: 20,
 			choices: allNamespaces.map((ns) => {
 				return {
-					value: ns.metadata?.name,
+					value: ns.metadata?.name || "",
+					name: ns.metadata?.name || "",
 				};
 			}),
 			message,
