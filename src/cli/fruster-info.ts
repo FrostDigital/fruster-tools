@@ -3,11 +3,11 @@
 import { program } from "commander";
 import moment from "moment";
 import { getDeployment, getPods, getService } from "../kube/kube-client";
+import { DOMAINS_ANNOTATION } from "../kube/kube-constants";
 import * as log from "../log";
 import { prettyPrintPods } from "../utils";
 import { printTable, validateRequiredArg } from "../utils/cli-utils";
-import { getDeploymentContainerResources, getDeploymentImage } from "../utils/kube-utils";
-import { FRUSTER_LIVENESS_ANNOTATION, ROUTABLE_ANNOTATION, DOMAINS_ANNOTATION } from "../kube/kube-constants";
+import { getDeploymentContainerResources, getDeploymentImage, getProbeString } from "../utils/kube-utils";
 import { parseImage } from "../utils/string-utils";
 
 program
@@ -42,15 +42,15 @@ async function run() {
 	}
 
 	// Deep dive into objects to pin point relevant data
-	const { creationTimestamp, annotations } = deployment?.metadata || {};
+	const { creationTimestamp } = deployment?.metadata || {};
 	// const container = deployment?.spec.template.spec.containers[0];
 	const { limits, requests } = getDeploymentContainerResources(deployment) || {};
 	const creation = moment(creationTimestamp);
 	const { imageName, imageTag } = parseImage(getDeploymentImage(deployment));
 
-	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations!;
-
 	const domains = service ? (service?.metadata?.annotations || {})[DOMAINS_ANNOTATION] : "";
+
+	const livenessStr = getProbeString(deployment, "liveness");
 
 	const tableModel = [];
 	tableModel.push(
@@ -73,7 +73,7 @@ async function run() {
 		["Memory request:", requests!.memory],
 		["Memory limit:", limits!.memory],
 		["", ""],
-		["Liveness healthcheck:", livenesHealthcheck || "none"],
+		["Liveness healthcheck:", livenessStr || "none"],
 		["", ""]
 	);
 

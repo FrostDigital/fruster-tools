@@ -1,23 +1,18 @@
+import k8s from "@kubernetes/client-node";
 import { ConfigMap } from "../models/ConfigMap";
-import { Deployment } from "../models/Deployment";
 import { Secret } from "../models/Secret";
 import { Service } from "../models/Service";
 import { base64encode } from "../utils";
-import k8s from "@kubernetes/client-node";
+import { CHANGE_CAUSE_ANNOTATION, DOMAINS_ANNOTATION, ROUTABLE_ANNOTATION } from "./kube-constants";
+import { parseProbeString } from "../utils/kube-utils";
 
-import {
-	FRUSTER_LIVENESS_ANNOTATION,
-	ROUTABLE_ANNOTATION,
-	DOMAINS_ANNOTATION,
-	CHANGE_CAUSE_ANNOTATION,
-} from "./kube-constants";
 const { isSemver } = require("../utils/string-utils");
 
 const DEFAULT_CPU_RESOURCES = "100m/500m";
 const DEFAULT_MEM_RESOURCES = "128Mi/256Mi";
 
-export const GLOBAL_SECRETS_NAME = "fruster-global-secrets";
-export const GLOBAL_CONFIG_NAME = "fruster-global-config";
+export const GLOBAL_SECRETS_NAME = "fctl-global-secrets";
+export const GLOBAL_CONFIG_NAME = "fctl-global-config";
 
 export function deployment({
 	namespace,
@@ -27,7 +22,7 @@ export function deployment({
 	replicas = 1,
 	env,
 	resources = { cpu: DEFAULT_CPU_RESOURCES, mem: DEFAULT_MEM_RESOURCES },
-	livenessHealthCheckType = "fruster-health",
+	livenessHealthCheck,
 	changeCause = "",
 	imagePullSecret,
 	hasGlobalConfig = false,
@@ -40,7 +35,7 @@ export function deployment({
 	replicas?: number;
 	env?: { [x: string]: string };
 	resources?: { cpu: string; mem: string };
-	livenessHealthCheckType?: string;
+	livenessHealthCheck?: string;
 	changeCause?: string;
 	imagePullSecret?: string;
 	hasGlobalConfig?: boolean;
@@ -49,19 +44,9 @@ export function deployment({
 	const [memReq, memLimit] = (resources.mem || DEFAULT_MEM_RESOURCES).split("/");
 	const [cpuReq, cpuLimit] = (resources.cpu || DEFAULT_CPU_RESOURCES).split("/");
 
-	const livenessProbe =
-		livenessHealthCheckType === "fruster-health"
-			? {
-					exec: {
-						command: ["/bin/cat", ".health"],
-					},
-					failureThreshold: 3,
-					initialDelaySeconds: 50,
-					periodSeconds: 10,
-					successThreshold: 1,
-					timeoutSeconds: 50,
-			  }
-			: undefined;
+	const livenessProbe: k8s.V1Probe | undefined = livenessHealthCheck
+		? parseProbeString(livenessHealthCheck)
+		: undefined;
 
 	const envFrom = [];
 
@@ -97,7 +82,7 @@ export function deployment({
 				app: appName,
 			},
 			annotations: {
-				[FRUSTER_LIVENESS_ANNOTATION]: livenessHealthCheckType,
+				// [FRUSTER_LIVENESS_ANNOTATION]: livenessHealthCheck,
 				[CHANGE_CAUSE_ANNOTATION]: changeCause,
 			},
 		},

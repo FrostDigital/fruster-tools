@@ -1,42 +1,24 @@
-import k8s from "@kubernetes/client-node";
+import k8s, { V1Probe } from "@kubernetes/client-node";
 import { objToConfigRows } from "../actions/update-config";
 import { getConfigMap } from "../kube/kube-client";
-import { FRUSTER_LIVENESS_ANNOTATION, REQUIRED_ENV_CONFIG } from "../kube/kube-constants";
+import { REQUIRED_ENV_CONFIG } from "../kube/kube-constants";
 import { GLOBAL_CONFIG_NAME } from "../kube/kube-templates";
 import { Deployment } from "../models/Deployment";
+import * as log from "../log";
 
-export function hasFrusterHealth(deployment: Deployment) {
-	return (deployment.metadata?.annotations || {})[FRUSTER_LIVENESS_ANNOTATION] === "fruster-health";
-}
-
-export function enableFrusterHealth(deployment: Deployment) {
+export function setProbe(probeString: string, deployment: Deployment, type: "liveness" | "readiness") {
 	deployment.metadata = deployment.metadata || {};
 	deployment.metadata.annotations = deployment.metadata.annotations || {};
-	deployment.metadata.annotations[FRUSTER_LIVENESS_ANNOTATION] = "fruster-health";
 
-	const livenessProbe = {
-		exec: {
-			command: ["/bin/cat", ".health"],
-		},
-		failureThreshold: 3,
-		initialDelaySeconds: 50,
-		periodSeconds: 10,
-		successThreshold: 1,
-		timeoutSeconds: 50,
-	};
-
-	const ctn = getFirstContainerOrThrow(deployment);
-	ctn.livenessProbe = livenessProbe;
-}
-
-export function disableFrusterHealth(deployment: Deployment) {
-	deployment.metadata = deployment.metadata || {};
-	deployment.metadata.annotations = deployment.metadata.annotations || {};
-	delete deployment.metadata.annotations[FRUSTER_LIVENESS_ANNOTATION];
+	const probe = parseProbeString(probeString);
 
 	const ctn = getFirstContainerOrThrow(deployment);
 
-	ctn.livenessProbe = undefined;
+	if (type === "liveness") {
+		ctn.livenessProbe = probe;
+	} else if (type === "readiness") {
+		ctn.readinessProbe = probe;
+	}
 }
 
 export async function getDeploymentAppConfig(
@@ -120,6 +102,104 @@ export function getNameAndNamespaceOrThrow(resource: Deployment | k8s.V1Service 
 	}
 
 	return { name, namespace };
+}
+
+// Parses port and path from string like :8080/foo/bar
+const httpGetRegex = /:(\d.*?)(\/.*)/;
+
+const defaultProbeOptions: Partial<k8s.V1Probe> = {
+	failureThreshold: 3,
+	periodSeconds: 10,
+	successThreshold: 1,
+	timeoutSeconds: 50,
+};
+
+export function parseProbeString(hc: string): k8s.V1Probe | undefined {
+	hc = hc.toLowerCase();
+
+	const [probe, initialDelaySplit] = hc.split(";");
+
+	let initialDelaySeconds = 30;
+
+	if (initialDelaySplit && initialDelaySplit.includes("initialdelayseconds=")) {
+		initialDelaySeconds = parseInt(initialDelaySplit.replace("initialdelayseconds=", ""));
+	}
+
+	if (probe.includes("tcp=")) {
+		const port = probe.replace("tcp=", "");
+
+		return {
+			tcpSocket: {
+				port,
+			},
+			...defaultProbeOptions,
+			initialDelaySeconds,
+		};
+	}
+
+	if (probe.includes("exec=")) {
+		const command = probe.replace("exec=", "");
+
+		return {
+			exec: {
+				command: command.split(" "), // TODO: Handle quotes
+			},
+			...defaultProbeOptions,
+			initialDelaySeconds,
+		};
+	}
+
+	if (probe.includes("get=")) {
+		const httpGet = probe.replace("get=", "");
+
+		const res = httpGetRegex.exec(httpGet);
+
+		if (!res) {
+			log.warn(`Invalid httpGet health check '${httpGet}' expected something like :8080/healthz`);
+			return;
+		}
+
+		const [_, port, path] = res;
+
+		return {
+			httpGet: {
+				port,
+				path,
+			},
+			...defaultProbeOptions,
+			initialDelaySeconds,
+		};
+	}
+
+	return undefined;
+}
+
+export function getProbeString(deployment: Deployment, type: "liveness" | "readiness") {
+	const ctn = getFirstContainerOrThrow(deployment);
+
+	let probe: V1Probe | undefined = undefined;
+
+	if (type === "liveness") {
+		probe = ctn.livenessProbe;
+	} else if (type === "readiness") {
+		probe = ctn.readinessProbe;
+	} else {
+		throw new Error("Should not happen?!");
+	}
+
+	if (!probe) {
+		return "";
+	}
+
+	const initialDelay = ";initialDelaySeconds=" + probe.initialDelaySeconds;
+
+	if (probe.exec) {
+		return `exec=${(probe.exec.command || []).join(" ")}${initialDelay}`;
+	} else if (probe.httpGet) {
+		return `get=:${probe.httpGet.port}/${probe.httpGet.path}${initialDelay}`;
+	} else if (probe.tcpSocket) {
+		return `tcp=:${probe.tcpSocket.port}${initialDelay}`;
+	}
 }
 
 function getFirstContainerOrThrow(deployment: Deployment) {

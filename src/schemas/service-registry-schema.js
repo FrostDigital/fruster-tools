@@ -97,12 +97,10 @@ module.exports = {
 					},
 					livenessHealthCheck: {
 						type: "string",
-						enum: ["fruster-health", "none"],
 						description:
-							"Type of liveness probe, defaults to `fruster-health` which will configure healt checks compatible with fruster-health-js",
+							"Type of liveness probe, examples:\ntcp=3000\nexec=cat /tmp/healthz\nget=:8080/healthz\n\nOptionally append ;initialDelaySeconds=60",
 					},
 				},
-
 				required: ["name"],
 			},
 		},
