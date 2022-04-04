@@ -7,6 +7,7 @@
 	"args": {
 		"INTERPOLATE_ME": "INTERPOLATED"
 	},
+	"apiVersion": "1",
 	"services": [
 		{
 			"name": "fruster-api-gateway",

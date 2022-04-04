@@ -6,15 +6,15 @@ jasmine.DEFAULT_TIMEOUT_INTERVAL = 30 * 1000;
 
 describe("Service registry", () => {
 	// @ts-ignore
-	let paceup;
+	let projectServiceRegistry;
 
 	beforeEach((done) => {
 		process.env.AN_ENV_VAR = "12";
 
 		svcReg
-			.create(path.join(__dirname, "support", "fruster-paceup.json"))
+			.create(path.join(__dirname, "support", "service-registry-example.json"))
 			.then((serviceRegistry) => {
-				paceup = serviceRegistry;
+				projectServiceRegistry = serviceRegistry;
 				done();
 			})
 			.catch(done.fail);
@@ -25,7 +25,7 @@ describe("Service registry", () => {
 	});
 
 	it("should be created from file", async () => {
-		const serviceRegistry = await svcReg.create(path.join(__dirname, "support", "fruster-paceup.json"));
+		const serviceRegistry = await svcReg.create(path.join(__dirname, "support", "service-registry-example.json"));
 
 		expect(serviceRegistry).toBeDefined();
 		expect(serviceRegistry.services.length).toBe(2);
@@ -35,7 +35,7 @@ describe("Service registry", () => {
 
 	it("should get filtered list of services", () => {
 		// @ts-ignore
-		expect(paceup.getServices("*api*").length).toBe(1);
+		expect(projectServiceRegistry.getServices("*api*").length).toBe(1);
 	});
 
 	describe("with inheritance", () => {
