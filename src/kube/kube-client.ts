@@ -114,6 +114,7 @@ export const getDeployments = async (namespace?: string, app?: string): Promise<
 
 		return res.body;
 	} catch (err: any) {
+		console.log(err);
 		if (err.response.statusCode !== 404) throw err;
 		return { items: [] };
 	}

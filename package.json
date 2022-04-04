@@ -7,7 +7,7 @@
 		"prepublish": "npm run build"
 	},
 	"bin": {
-		"fctl": "./dist/cli/fruster.js"
+		"fctl": "./dist/cli/fctl.js"
 	},
 	"dependencies": {
 		"@kubernetes/client-node": "^0.10.2",

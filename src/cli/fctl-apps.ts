@@ -5,7 +5,7 @@ import { program } from "commander";
 import { getDeployments } from "../kube/kube-client";
 import * as log from "../log";
 import { ensureLength } from "../utils";
-import { printTable } from "../utils/cli-utils";
+import { printTable, validateRequiredArg } from "../utils/cli-utils";
 
 program
 	.description(
@@ -14,13 +14,14 @@ program
 Examples:
 
 $ fctl apps
-
 `
 	)
-	.option("-n, --namespace <namespace>", "filter by kubernetes namespace")
+	.option("-n, --namespace <namespace>", "kubernetes namespace")
 	.parse(process.argv);
 
 const namespace = program.getOptionValue("namespace");
+
+validateRequiredArg(namespace, program, "Namespace is required");
 
 async function run() {
 	listApps();
