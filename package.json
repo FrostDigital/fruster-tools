@@ -1,6 +1,6 @@
 {
 	"name": "@fruster/fctl",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"scripts": {
 		"test": "ts-node ./spec/support/jasmine-runner.js",
 		"build": "rimraf --no-glob ./dist/ && tsc -p ./tsconfig.dist.json",
