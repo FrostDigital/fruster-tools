@@ -7,6 +7,7 @@
 	"args": {
 		"INTERPOLATE_ME": "INTERPOLATED"
 	},
+	"apiVersion": "1",
 	"services": [
 		{
 			"name": "fruster-api-gateway",
@@ -18,6 +19,7 @@
 		},
 		{
 			"name": "fruster-auth-service",
+			"image": "fruster/fruster-auth-service",
 			"env": {
 				"BAZ": "BAZ",
 				"INTERPOLATED_VALUE": "${INTERPOLATE_ME}!"

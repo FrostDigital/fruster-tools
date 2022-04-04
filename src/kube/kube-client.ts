@@ -1,30 +1,32 @@
-import { ApiClient, ApiRoot, Client1_13 } from "kubernetes-client";
-import { kubeClientVersion } from "../conf";
-import { deployment, namespace, appConfigSecret, service } from "./kube-templates";
+import * as k8s from "@kubernetes/client-node";
 import * as log from "../log";
-import { AppManifest } from "../models/ServiceRegistryModel";
-import { Namespace } from "../models/Namespace";
 import { ClusterRole } from "../models/ClusterRole";
 import { ClusterRoleBinding } from "../models/ClusterRoleBinding";
-import { ServiceAccount } from "../models/ServiceAccount";
-import { Deployment } from "../models/Deployment";
-import { Secret } from "../models/Secret";
-import { Service } from "../models/Service";
-import { DOMAINS_ANNOTATION } from "./kube-constants";
 import { ConfigMap } from "../models/ConfigMap";
+import { Deployment } from "../models/Deployment";
+import { Service } from "../models/Service";
+import { AppManifest } from "../models/ServiceRegistryModel";
+import { DOMAINS_ANNOTATION } from "./kube-constants";
+import { deployment, namespace, service } from "./kube-templates";
 
-const REQ_TIMEOUT = 20 * 1000;
-const Request = require("kubernetes-client/backends/request");
-
-let client: ApiRoot;
+let client: k8s.CoreV1Api;
+let appsClient: k8s.AppsV1Api;
+let coreClient: k8s.CoreV1Api;
+let rbacClient: k8s.RbacAuthorizationV1Api;
 
 if (!process.env.CI) {
-	client = new Client1_13({
-		backend: new Request({ ...Request.config.fromKubeconfig(), timeout: REQ_TIMEOUT }),
-		version: kubeClientVersion,
-	});
+	const kc = new k8s.KubeConfig();
+	kc.loadFromDefault();
+
+	client = kc.makeApiClient(k8s.CoreV1Api);
+	appsClient = kc.makeApiClient(k8s.AppsV1Api);
+	coreClient = kc.makeApiClient(k8s.CoreV1Api);
+	rbacClient = kc.makeApiClient(k8s.RbacAuthorizationV1Api);
 } else {
-	client = {} as ApiRoot; // mock if test
+	client = {} as k8s.CoreV1Api; // mock if test
+	appsClient = {} as k8s.AppsV1Api; // mock if test
+	coreClient = {} as k8s.CoreV1Api; // mock if test
+	rbacClient = {} as k8s.RbacAuthorizationV1Api; // mock if test
 }
 
 const ROLLING_RESTART_DELAY_SEC = 10;
@@ -34,7 +36,7 @@ export const kubeClient = client;
 /**
  * Creates a namespace. Returns true if created, or false if it already exists.
  */
-export const createNamespace = async (name: string, dryRun = false) => {
+export const createNamespace = async (name: string, dryRun = false, isAppNamespace = true) => {
 	if (dryRun) {
 		if (await getNamespace(name)) {
 			log.info(`[Dry run] Namespace ${name} already exists`);
@@ -46,11 +48,11 @@ export const createNamespace = async (name: string, dryRun = false) => {
 	}
 
 	try {
-		await client.api.v1.namespaces.post({ body: namespace(name) });
+		await client.createNamespace(namespace(name, isAppNamespace));
 		log.debug(`Namespace ${name} created`);
 		return true;
 	} catch (err: any) {
-		if (err.code !== 409) throw err;
+		if (err.response.statusCode !== 409) throw err;
 		log.debug(`Namespace ${name} already exists`);
 		return false;
 	}
@@ -58,64 +60,81 @@ export const createNamespace = async (name: string, dryRun = false) => {
 
 export const getNamespace = async (name: string) => {
 	try {
-		const { body } = await client.api.v1.namespaces(name).get();
+		const { body } = await client.readNamespace(name);
 		return body;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return null;
+	}
+};
+
+export const getNamespaces = async (): Promise<k8s.V1Namespace[]> => {
+	try {
+		const { body } = await client.listNamespace();
+		return body.items;
+	} catch (err: any) {
+		throw err;
 	}
 };
 
 export const getDeployment = async (namespace: string, name: string): Promise<Deployment | null> => {
 	try {
-		const { body } = await client.apis.apps.v1.namespaces(namespace).deployments(name).get();
+		const { body } = await appsClient.readNamespacedDeployment(name, namespace);
 
-		return body;
+		// TODO: Quick fix, use V1Deployment and remove Deployment model
+		return body as Deployment;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return null;
 	}
 };
 
-export const getDeployments = async (namespace?: string, app?: string): Promise<{ items: Deployment[] }> => {
+export const getDeployments = async (namespace?: string, app?: string): Promise<k8s.V1DeploymentList> => {
 	try {
-		const qs = { qs: { labelSelector: "fruster=true" } };
+		let labelSelector = "fctl=true";
 
 		if (app) {
-			qs.qs.labelSelector += ",app=" + app;
+			labelSelector = labelSelector += ",app=" + app;
 		}
 
 		let res;
 
 		if (namespace) {
-			res = await client.apis.apps.v1.namespaces(namespace).deployments.get(qs);
+			res = await appsClient.listNamespacedDeployment(
+				namespace,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				labelSelector
+			);
 		} else {
-			res = await client.apis.apps.v1.deployments.get(qs);
+			res = await appsClient.listDeploymentForAllNamespaces(undefined, undefined, undefined, labelSelector);
 		}
 
 		return res.body;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return { items: [] };
 	}
 };
 
 export const deleteNamespace = async (name: string) => {
 	try {
-		const { body } = await client.api.v1.namespace(name).delete();
+		const { body } = await client.deleteNamespace(name);
 		return body;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return null;
 	}
 };
 
 export const deleteDeployment = async (namespace: string, name: string) => {
 	try {
-		const { body } = await client.apis.apps.v1.namespaces(namespace).deployments(name).delete();
+		const { body } = await appsClient.deleteNamespacedDeployment(name, namespace);
 		return body;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return null;
 	}
 };
@@ -123,7 +142,7 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 export const createAppDeployment = async (
 	namespace: string,
 	serviceConfig: AppManifest,
-	opts?: { changeCause: string; configName?: string; hasGlobalConfig?: boolean; hasGlobalSecrets?: boolean }
+	opts?: { changeCause: string; hasGlobalConfig?: boolean; hasGlobalSecrets?: boolean }
 ) => {
 	const existingDeployment = await getDeployment(namespace, serviceConfig.name);
 
@@ -137,34 +156,31 @@ export const createAppDeployment = async (
 		image: serviceConfig.image,
 		imageTag: serviceConfig.imageTag,
 		// Use existing number of replicas in update of deployment
-		replicas: existingDeployment ? existingDeployment.spec.replicas : 1,
-		configName: opts?.configName,
+		replicas: existingDeployment ? existingDeployment.spec?.replicas : 1,
 		resources: serviceConfig.resources,
 		livenessHealthCheckType: serviceConfig.livenessHealthCheck,
 		changeCause: opts?.changeCause,
 		imagePullSecret: serviceConfig.imagePullSecret,
 		hasGlobalConfig: opts?.hasGlobalConfig,
 		hasGlobalSecrets: opts?.hasGlobalSecrets,
+		env: serviceConfig.env,
 	});
 
 	try {
-		await client.apis.apps.v1.namespace(namespace).deployments.post({ body: deploymentManifest });
+		await appsClient.createNamespacedDeployment(namespace, deploymentManifest);
 		log.debug("Created deployment");
 	} catch (err: any) {
-		if (err.code !== 409) throw err;
+		if (err.response.statusCode !== 409) throw err;
 
-		await client.apis.apps.v1
-			.namespaces(namespace)
-			.deployments(serviceConfig.name)
-			.put({ body: deploymentManifest });
+		await appsClient.replaceNamespacedDeployment(serviceConfig.name, namespace, deploymentManifest);
 
 		log.debug("Updated deployment");
 	}
 };
 
-export const createDeployment = async (namespace: string, body: Deployment) => {
+export const createDeployment = async (namespace: string, body: k8s.V1Deployment) => {
 	try {
-		await client.apis.apps.v1.namespace(namespace).deployments.post({ body });
+		await appsClient.createNamespacedDeployment(namespace, body);
 		log.debug("Created deployment");
 	} catch (err: any) {
 		throw err;
@@ -172,8 +188,12 @@ export const createDeployment = async (namespace: string, body: Deployment) => {
 };
 
 export const patchDeployment = async (namespace: string, deploymentName: string, patch: any) => {
+	// const options = { headers: { "Content-type": "application/strategic-merge-patch+json" } };
+	// const options = { headers: { "content-type": "application/json-patch+json" } };
+	const options = { headers: { "content-type": "application/strategic-merge-patch+json" } };
+
 	try {
-		await client.apis.apps.v1.namespace(namespace).deployments(deploymentName).patch(patch);
+		await appsClient.patchNamespacedDeployment(deploymentName, namespace, patch, undefined, undefined, options);
 		log.debug("Patched deployment");
 	} catch (err: any) {
 		log.error("Failed to patch deployment " + deploymentName);
@@ -181,9 +201,20 @@ export const patchDeployment = async (namespace: string, deploymentName: string,
 	}
 };
 
-export const updateDeployment = async (namespace: string, deploymentName: string, update: any) => {
+export const updateDeployment = async (namespace: string, deploymentName: string, update: k8s.V1Deployment) => {
+	const oUpdate = { ...update };
+
+	if (oUpdate.metadata) {
+		delete oUpdate.metadata.selfLink;
+		delete oUpdate.metadata.resourceVersion;
+		delete oUpdate.metadata.uid;
+		delete oUpdate.metadata.creationTimestamp;
+	}
+
+	delete oUpdate.status;
+
 	try {
-		await client.apis.apps.v1.namespace(namespace).deployments(deploymentName).put({ body: update });
+		await appsClient.replaceNamespacedDeployment(deploymentName, namespace, oUpdate);
 		log.debug("Updated deployment");
 	} catch (err: any) {
 		log.error("Failed to update deployment " + deploymentName);
@@ -191,72 +222,43 @@ export const updateDeployment = async (namespace: string, deploymentName: string
 	}
 };
 
-export const getSecret = async (namespace = "default", name: string): Promise<Secret | null> => {
+export const getSecret = async (namespace = "default", name: string) => {
 	try {
-		const { body } = await client.api.v1.namespaces(namespace).secret(name).get();
+		const { body } = await client.readNamespacedSecret(name, namespace);
 		return body;
 	} catch (err: any) {
-		if (err.code === 404) return null;
+		if (err.response.statusCode === 404) return null;
 		throw err;
 	}
 };
 
-export const setConfig = async (namespace: string, serviceName: string, env: any): Promise<Secret> => {
-	const newSecret = appConfigSecret(namespace, serviceName, { ...(env || {}) });
-
-	try {
-		await client.api.v1.namespaces(namespace).secrets.post({ body: newSecret });
-		log.debug(`Created config for ${serviceName}`);
-		return newSecret;
-	} catch (err: any) {
-		if (err.code !== 409) throw err;
-
-		await client.api.v1.namespace(namespace).secret(newSecret.metadata.name).put({ body: newSecret });
-
-		log.debug(`Updated config for ${serviceName}`);
-		return newSecret;
+export const updateSecret = async (namespace: string, name: string, body: k8s.V1Secret) => {
+	if (body.metadata) {
+		delete body.metadata.creationTimestamp;
+		delete body.metadata.uid;
+		delete body.metadata.resourceVersion;
 	}
-};
 
-export const updateSecret = async (namespace: string, name: string, body: Secret) => {
 	try {
-		await client.api.v1.namespace(namespace).secret(name).put({ body });
+		await client.replaceNamespacedSecret(name, namespace, body);
 		log.debug(`Updated secret ${name} in namespace ${namespace}`);
 	} catch (err: any) {
 		console.error("Failed to update secret", err);
 	}
 };
 
-export const getConfig = async (namespace: string, serviceName: string): Promise<{ [x: string]: string } | null> => {
-	try {
-		const { body } = await client.api.v1
-			.namespace(namespace)
-			.secret(getConfigNameFromServiceName(serviceName))
-			.get();
-
-		if (body.data) {
-			Object.keys(body.data).forEach((key) => {
-				body.data[key] = base64Decode(body.data[key]);
-			});
-		}
-
-		return body.data || {};
-	} catch (err: any) {
-		if (err.code !== 404) throw err;
-		return null;
-	}
-};
-
-export const createSecret = async (namespace: string, secret: Secret) => {
+export const createSecret = async (namespace: string, secret: k8s.V1Secret) => {
+	secret.metadata = secret.metadata || {};
 	secret.metadata.namespace = namespace;
 
 	try {
-		await client.api.v1.namespaces(namespace).secrets.post({ body: secret });
+		const res = await client.createNamespacedSecret(namespace, secret);
 		log.debug(`Created secret for ${namespace}`);
+		return res.body;
 	} catch (err: any) {
-		if (err.code !== 409) throw err;
+		if (err.response.statusCode !== 409) throw err;
 
-		await client.api.v1.namespace(namespace).secret(secret.metadata.name).put({ body: secret });
+		await client.replaceNamespacedSecret(secret.metadata.name!, namespace, secret);
 
 		log.debug(`Updated config for ${namespace}`);
 	}
@@ -264,25 +266,25 @@ export const createSecret = async (namespace: string, secret: Secret) => {
 
 export const deleteSecret = async (namespace: string, secretName: string) => {
 	try {
-		await client.api.v1.namespaces(namespace).secrets(secretName).delete();
+		await client.deleteNamespacedSecret(secretName, namespace);
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 	}
 };
 
-export const getConfigMap = async (namespace: string, name: string): Promise<ConfigMap | null> => {
+export const getConfigMap = async (namespace: string, name: string): Promise<k8s.V1ConfigMap | null> => {
 	try {
-		const { body } = await client.api.v1.namespaces(namespace).configmap(name).get();
+		const { body } = await coreClient.readNamespacedConfigMap(name, namespace);
 		return body;
 	} catch (err: any) {
-		if (err.code === 404) return null;
+		if (err.response.statusCode === 404) return null;
 		throw err;
 	}
 };
 
-export const createConfigMap = async (namespace: string, configMap: ConfigMap): Promise<ConfigMap | null> => {
+export const createConfigMap = async (namespace: string, configMap: ConfigMap): Promise<k8s.V1ConfigMap | null> => {
 	try {
-		const { body } = await client.api.v1.namespaces(namespace).configmap.post({ body: configMap });
+		const { body } = await coreClient.createNamespacedConfigMap(namespace, configMap);
 		return body;
 	} catch (err: any) {
 		throw err;
@@ -292,10 +294,17 @@ export const createConfigMap = async (namespace: string, configMap: ConfigMap): 
 export const updateConfigMap = async (
 	namespace: string,
 	name: string,
-	configMap: ConfigMap
-): Promise<ConfigMap | null> => {
+	configMap: k8s.V1ConfigMap
+): Promise<k8s.V1ConfigMap | null> => {
+	if (configMap.metadata) {
+		delete configMap.metadata.selfLink;
+		delete configMap.metadata.resourceVersion;
+		delete configMap.metadata.uid;
+		delete configMap.metadata.creationTimestamp;
+	}
+
 	try {
-		const { body } = await client.api.v1.namespaces(namespace).configmap(name).put({ body: configMap });
+		const { body } = await coreClient.replaceNamespacedConfigMap(name, namespace, configMap);
 		return body;
 	} catch (err: any) {
 		throw err;
@@ -304,10 +313,10 @@ export const updateConfigMap = async (
 
 export const createService = async (namespace: string, body: Service) => {
 	try {
-		await client.api.v1.namespace(namespace).service.post({ body });
+		await client.createNamespacedService(namespace, body);
 		return true;
 	} catch (err: any) {
-		if (err.code !== 409) throw err;
+		if (err.response.statusCode !== 409) throw err;
 		return false;
 	}
 };
@@ -325,17 +334,18 @@ export const ensureServiceForApp = async (
 	}
 
 	try {
-		await client.api.v1.namespace(namespace).service.post({ body: service(namespace, name, port, domains) });
+		await client.createNamespacedService(namespace, service(namespace, name, port, domains));
 		log.debug(`Service created`);
 		return true;
 	} catch (err: any) {
-		if (err.code !== 409) throw err;
+		if (err.response.statusCode !== 409) throw err;
 		log.debug(`Service already exists`);
 
 		const existingService = await getService(namespace, name);
-		const existingDomains = (existingService?.metadata.annotations || {})[DOMAINS_ANNOTATION];
+		const existingDomains = (existingService?.metadata?.annotations || {})[DOMAINS_ANNOTATION];
 
 		if (existingService && existingDomains !== domains.join(",")) {
+			existingService.metadata = existingService.metadata || {};
 			existingService.metadata.annotations = existingService.metadata.annotations || {
 				"router.deis.io/maintenance": "False",
 				"router.deis.io/ssl.enforce": "False",
@@ -343,26 +353,32 @@ export const ensureServiceForApp = async (
 
 			existingService.metadata.annotations[DOMAINS_ANNOTATION] = domains.join(",");
 
-			await client.api.v1.namespace(namespace).service(name).put({ body: existingService });
+			delete existingService.metadata.selfLink;
+			// delete existingService.metadata.resourceVersion;
+			delete existingService.metadata.uid;
+			delete existingService.metadata.creationTimestamp;
+			delete existingService.status;
+
+			await client.replaceNamespacedService(name, namespace, existingService);
 		}
 
 		return false;
 	}
 };
 
-export const getService = async (namespace: string, name: string): Promise<Service | null> => {
+export const getService = async (namespace: string, name: string): Promise<k8s.V1Service | null> => {
 	try {
-		const { body } = await client.api.v1.namespace(namespace).service(name).get();
+		const { body } = await client.readNamespacedService(name, namespace);
 		return body;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return null;
 	}
 };
 
 export const deleteService = async (namespace: string, name: string) => {
 	try {
-		await client.api.v1.namespace(namespace).service(name).delete();
+		await client.deleteNamespacedService(name, namespace);
 		return true;
 	} catch (err: any) {
 		if (err.statusCode === 404) {
@@ -377,10 +393,41 @@ export const deleteService = async (namespace: string, name: string) => {
 	}
 };
 
+export const getReplicaSets = async (namespace: string, serviceName?: string): Promise<any[] | null> => {
+	try {
+		const { body } = await appsClient.listNamespacedReplicaSet(
+			namespace,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			"app=" + serviceName
+		);
+
+		return body.items;
+	} catch (err: any) {
+		if (err.response.statusCode !== 404) throw err;
+		return null;
+	}
+};
+
 export const deleteReplicaSet = async (namespace: string, serviceName: string) => {
 	try {
-		const query = { qs: { labelSelector: "app=" + serviceName } };
-		await client.apis.app.v1.namespace(namespace).replicaset.get(query).delete();
+		const rs = await appsClient.listNamespacedReplicaSet(
+			namespace,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			`app=${serviceName}`
+		);
+
+		for (const item of rs.body.items) {
+			if (item.metadata?.name) {
+				await appsClient.deleteNamespacedReplicaSet(item.metadata.name, namespace);
+			}
+		}
+
 		return true;
 	} catch (err: any) {
 		log.debug("Failed deleting replicaset: " + serviceName);
@@ -401,9 +448,12 @@ export const copySecret = async (secretName: string, fromNamespace: string, toNa
 		return false;
 	}
 
+	imagePullSecret.data = imagePullSecret.data || {};
+
 	const existingPulllSecret = await getSecret(secretName, toNamespace);
 	if (
 		existingPulllSecret &&
+		existingPulllSecret.data &&
 		existingPulllSecret.data[".dockerconfigjson"] === imagePullSecret.data[".dockerconfigjson"]
 	) {
 		log.debug("Sercet already exists, nothing to do ");
@@ -463,31 +513,30 @@ export const restartPods = async (namespace: string, appName: string, rollingRes
  * @param {string?} namespace
  * @param {string?} appName
  */
-export const getPods = async (namespace: string, appName: string): Promise<any[]> => {
+export const getPods = async (namespace: string, appName: string) => {
 	try {
-		const query = appName ? { qs: { labelSelector: "app=" + appName } } : {};
 		let res;
 
+		const labelSelector = "app=" + appName;
+
 		if (namespace) {
-			res = await client.api.v1.namespace(namespace).pods.get(query);
+			res = await client.listNamespacedPod(namespace, undefined, undefined, undefined, undefined, labelSelector);
 		} else {
-			res = await client.api.v1.pods.get(query);
+			res = await client.listPodForAllNamespaces(undefined, undefined, undefined, labelSelector);
 		}
 
 		return res.body.items;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return [];
 	}
 };
 
-export const scaleDeployment = async (namespace: string, serviceName: string, replicas: number) => {
+export const scaleDeployment = async (namespace: string, appName: string, replicas: number) => {
 	try {
-		await patchDeployment(namespace, serviceName, {
-			body: {
-				spec: {
-					replicas,
-				},
+		await patchDeployment(namespace, appName, {
+			spec: {
+				replicas,
 			},
 		});
 		return true;
@@ -499,10 +548,10 @@ export const scaleDeployment = async (namespace: string, serviceName: string, re
 
 export const deletePod = async (namespace: string, podName: string) => {
 	try {
-		await client.api.v1.namespace(namespace).pod(podName).delete();
+		await client.deleteNamespacedPod(podName, namespace);
 		return true;
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return false;
 	}
 };
@@ -520,11 +569,21 @@ export const getNamespaceForApp = async (appName: string) => {
 export const getLogs = async (namespace: string, podName: string, tailLines = 100, streamLogs = false) => {
 	try {
 		if (streamLogs) {
-			const stream = await client.api.v1.namespace(namespace).po(podName).log.getStream();
+			const stream = await client.readNamespacedPodLog(podName, namespace, undefined, true);
 
 			return stream;
 		} else {
-			const { body } = await client.api.v1.namespace(namespace).po(podName).log.get({ qs: { tailLines } });
+			const { body } = await client.readNamespacedPodLog(
+				podName,
+				namespace,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				tailLines
+			);
 
 			return body;
 		}
@@ -533,55 +592,34 @@ export const getLogs = async (namespace: string, podName: string, tailLines = 10
 	}
 };
 
-export const getReplicaSets = async (namespace: string, serviceName?: string): Promise<any[] | null> => {
-	try {
-		const query = serviceName ? { qs: { labelSelector: "app=" + serviceName } } : {};
-		const { body } = await client.apis.apps.v1.namespace(namespace).replicasets.get(query);
-
-		return body.items;
-	} catch (err: any) {
-		if (err.code !== 404) throw err;
-		return null;
-	}
-};
-
-export const getSecrets = async (namespace?: string): Promise<any[] | null> => {
+export const getSecrets = async (namespace?: string): Promise<k8s.V1Secret[] | null> => {
 	try {
 		if (namespace) {
-			const { body } = await client.api.v1.namespace(namespace).secrets.get({});
+			const { body } = await client.listNamespacedSecret(namespace);
 			return body.items;
 		} else {
-			const { body } = await client.api.v1.secrets.get({});
+			const { body } = await client.listSecretForAllNamespaces();
 			return body.items;
 		}
 	} catch (err: any) {
-		if (err.code !== 404) throw err;
+		if (err.response.statusCode !== 404) throw err;
 		return null;
 	}
 };
 
-export const getNamespaces = async (): Promise<Namespace[]> => {
+export const getClusterRole = async (name: string): Promise<k8s.V1ClusterRole | null> => {
 	try {
-		const { body } = await client.api.v1.namespaces.get();
-		return body.items;
-	} catch (err: any) {
-		throw err;
-	}
-};
-
-export const getClusterRole = async (name: string): Promise<ClusterRole | null> => {
-	try {
-		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrole(name).get();
+		const { body } = await rbacClient.readClusterRole(name);
 		return body;
 	} catch (err: any) {
-		if (err.code === 404) return null;
+		if (err.response.statusCode === 404) return null;
 		throw err;
 	}
 };
 
 export const deleteClusterRole = async (name: string) => {
 	try {
-		await client.apis["rbac.authorization.k8s.io"].v1.clusterrole(name).delete();
+		await rbacClient.deleteClusterRole(name);
 		return true;
 	} catch (err: any) {
 		if (err.statusCode === 404) {
@@ -596,12 +634,12 @@ export const deleteClusterRole = async (name: string) => {
 	}
 };
 
-export const getClusterRoleBinding = async (name: string): Promise<ClusterRoleBinding | null> => {
+export const getClusterRoleBinding = async (name: string): Promise<k8s.V1ClusterRoleBinding | null> => {
 	try {
-		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding(name).get();
+		const { body } = await rbacClient.readClusterRoleBinding(name);
 		return body;
 	} catch (err: any) {
-		if (err.code === 404) return null;
+		if (err.response.statusCode === 404) return null;
 
 		throw err;
 	}
@@ -609,17 +647,17 @@ export const getClusterRoleBinding = async (name: string): Promise<ClusterRoleBi
 
 export const deleteClusterRoleBinding = async (name: string): Promise<boolean> => {
 	try {
-		await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding(name).delete();
+		await rbacClient.deleteClusterRoleBinding(name);
 		return true;
 	} catch (err: any) {
-		if (err.code === 404) return true;
+		if (err.response.statusCode === 404) return true;
 		return false;
 	}
 };
 
-export const createClusterRole = async (clusterRole: ClusterRole): Promise<ClusterRole> => {
+export const createClusterRole = async (clusterRole: ClusterRole): Promise<k8s.V1ClusterRole> => {
 	try {
-		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrole.post({ body: clusterRole });
+		const { body } = await rbacClient.createClusterRole(clusterRole);
 		return body;
 	} catch (err: any) {
 		console.log(err);
@@ -627,22 +665,20 @@ export const createClusterRole = async (clusterRole: ClusterRole): Promise<Clust
 	}
 };
 
-export const createClusterRoleBinding = async (clusterRoleBinding: ClusterRoleBinding): Promise<any> => {
+export const createClusterRoleBinding = async (
+	clusterRoleBinding: ClusterRoleBinding
+): Promise<k8s.V1ClusterRoleBinding> => {
 	try {
-		const { body } = await client.apis["rbac.authorization.k8s.io"].v1.clusterrolebinding.post({
-			body: clusterRoleBinding,
-		});
+		const { body } = await rbacClient.createClusterRoleBinding(clusterRoleBinding);
 		return body;
 	} catch (err: any) {
 		throw err;
 	}
 };
 
-export const createRole = async (namespace: string, role: any): Promise<boolean> => {
+export const createRole = async (namespace: string, role: k8s.V1Role): Promise<k8s.V1Role> => {
 	try {
-		const { body } = await client.apis["rbac.authorization.k8s.io"].v1
-			.namespace(namespace)
-			.role.post({ body: role });
+		const { body } = await rbacClient.createNamespacedRole(namespace, role);
 		return body;
 	} catch (err: any) {
 		throw err;
@@ -651,7 +687,7 @@ export const createRole = async (namespace: string, role: any): Promise<boolean>
 
 export const deleteRole = async (namespace: string, name: string): Promise<boolean> => {
 	try {
-		await client.apis["rbac.authorization.k8s.io"].v1.namespace(namespace).role(name).delete();
+		await rbacClient.deleteNamespacedRole(name, namespace);
 		return true;
 	} catch (err: any) {
 		if (err.statusCode === 404) {
@@ -662,11 +698,9 @@ export const deleteRole = async (namespace: string, name: string): Promise<boole
 	}
 };
 
-export const createRoleBinding = async (namespace: string, roleBinding: any): Promise<any> => {
+export const createRoleBinding = async (namespace: string, roleBinding: k8s.V1RoleBinding) => {
 	try {
-		const { body } = await client.apis["rbac.authorization.k8s.io"].v1
-			.namespace(namespace)
-			.rolebinding.post({ body: roleBinding });
+		const { body } = await rbacClient.createNamespacedRoleBinding(namespace, roleBinding);
 		return body;
 	} catch (err: any) {
 		throw err;
@@ -675,7 +709,7 @@ export const createRoleBinding = async (namespace: string, roleBinding: any): Pr
 
 export const deleteRoleBinding = async (namespace: string, name: string): Promise<boolean> => {
 	try {
-		await client.apis["rbac.authorization.k8s.io"].v1.namespace(namespace).rolebinding(name).delete();
+		await rbacClient.deleteNamespacedRoleBinding(name, namespace);
 		return true;
 	} catch (err: any) {
 		if (err.statusCode === 404) {
@@ -686,55 +720,39 @@ export const deleteRoleBinding = async (namespace: string, name: string): Promis
 	}
 };
 
-export const getServiceAccount = async (namespace: string, name: string): Promise<ServiceAccount | null> => {
+export const getServiceAccount = async (namespace: string, name: string) => {
 	try {
-		const { body } = await client.api.v1.namespace(namespace).serviceaccount(name).get();
+		const { body } = await client.readNamespacedServiceAccount(name, namespace);
 		return body;
 	} catch (err: any) {
-		if (err.code === 404) return null;
+		if (err.response.statusCode === 404) return null;
 		throw err;
 	}
 };
 
 export const deleteServiceAccount = async (namespace: string, name: string): Promise<boolean> => {
 	try {
-		await client.api.v1.namespace(namespace).serviceaccount(name).delete();
+		await client.deleteNamespacedServiceAccount(name, namespace);
 		return true;
 	} catch (err: any) {
-		if (err.code === 404) return true;
+		if (err.response.statusCode === 404) return true;
 		return false;
 	}
 };
 
-export const createServiceAccount = async (namespace: string, serviceAccount: ServiceAccount): Promise<any> => {
+export const createServiceAccount = async (namespace: string, serviceAccount: k8s.V1ServiceAccount) => {
 	try {
-		const { body } = await client.api.v1.namespace(namespace).serviceaccount.post({ body: serviceAccount });
+		const { body } = await client.createNamespacedServiceAccount(namespace, serviceAccount);
 		return body;
 	} catch (err: any) {
 		throw err;
 	}
 };
 
-/**
- *
- * @param {string} serviceName
- */
 export function getConfigNameFromServiceName(serviceName: string) {
 	return serviceName + "-config";
 }
 
-/**
- *
- * @param {string} str
- */
-function base64Decode(str: string) {
-	return Buffer.from(str, "base64").toString();
-}
-
-/**
- *
- * @param {number} ms
- */
 function sleep(ms: number) {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
@@ -743,14 +761,6 @@ function sleep(ms: number) {
 
 function filterNonTerminatedPods(pods: any[]) {
 	return pods.filter((pod) => {
-		return pod.status.containerStatuses && !pod.status.containerStatuses[0].state.terminated;
+		return pod.status.containerStatuses && !pod.status.containerStatuses[0]?.state.terminated;
 	});
 }
-
-// export async function getClusterInfo() {
-// 	const conf = config.fromKubeconfig();
-
-// 	return {
-// 		clusterUrl: conf.url,
-// 	};
-// }

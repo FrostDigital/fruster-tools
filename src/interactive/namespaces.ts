@@ -39,20 +39,20 @@ export async function namespaces() {
 
 	const allNamespaces = await getNamespaces();
 
-	const namespaces = allNamespaces.filter((ns) => ns.metadata.labels?.fruster);
+	const namespaces = allNamespaces.filter((ns) => ns.metadata?.labels?.fctl);
 
 	clearScreen();
 
 	const namespaceChoices = namespaces.map((ns) => ({
-		message: `${ns.metadata.name}${ns.status?.phase === "Terminating" ? " 💥 Terminating" : ""}`,
-		name: ns.metadata.name,
+		message: `${ns.metadata?.name}${ns.status?.phase === "Terminating" ? " 💥 Terminating" : ""}`,
+		name: ns.metadata!.name!,
 	}));
 
 	log.info(
 		`${chalk.magenta(`Found ${namespaceChoices.length} namespace(s)`)}\nSelect with arrow keys and press enter`
 	);
 
-	console.log(chalk.dim("Only fruster namespaces will show (those labeled 'fruster=true')"));
+	console.log(chalk.dim("Only namespaces labeled fctl are visible"));
 	console.log();
 
 	const { ns } = await enquirer.prompt<{ ns: any }>([
@@ -79,7 +79,7 @@ export async function namespaces() {
 		});
 	} else if (ns) {
 		pushScreen({
-			props: namespaces.find((namespace) => namespace.metadata.name === ns),
+			props: namespaces.find((namespace) => namespace.metadata?.name === ns),
 			render: viewNamespace,
 			escAction: "back",
 		});
@@ -178,7 +178,7 @@ async function globalConfig(ns: Namespace) {
 	console.log("Global config are config exposed as env vars to all apps within the namespace");
 	console.log();
 
-	const tableRows = Object.keys(globalConfig?.data || {}).map((k) => [k, globalConfig!.data[k]]);
+	const tableRows = Object.keys(globalConfig?.data || {}).map((k) => [k, (globalConfig?.data || {})[k]]);
 
 	printTable(tableRows, ["Key", "Value"], true);
 
@@ -221,7 +221,7 @@ async function globalSecrets({ namespace, reveal }: { namespace: Namespace; reve
 	} else {
 		const tableRows = configKeys.map((k) => [
 			chalk.dim(k),
-			reveal ? base64decode(globalSecret!.data[k]) : maskStr(globalSecret!.data[k]),
+			reveal ? base64decode((globalSecret?.data || {})[k]) : maskStr((globalSecret?.data || {})[k]),
 		]);
 
 		printTable(tableRows, ["Key", "Value"], true);

@@ -3,6 +3,7 @@ import { Deployment } from "../models/Deployment";
 import { Secret } from "../models/Secret";
 import { Service } from "../models/Service";
 import { base64encode } from "../utils";
+import k8s from "@kubernetes/client-node";
 
 import {
 	FRUSTER_LIVENESS_ANNOTATION,
@@ -12,7 +13,7 @@ import {
 } from "./kube-constants";
 const { isSemver } = require("../utils/string-utils");
 
-const DEFAULT_CPU_RESOURCES = "100m/1000m";
+const DEFAULT_CPU_RESOURCES = "100m/500m";
 const DEFAULT_MEM_RESOURCES = "128Mi/256Mi";
 
 export const GLOBAL_SECRETS_NAME = "fruster-global-secrets";
@@ -24,7 +25,7 @@ export function deployment({
 	image,
 	imageTag,
 	replicas = 1,
-	configName,
+	env,
 	resources = { cpu: DEFAULT_CPU_RESOURCES, mem: DEFAULT_MEM_RESOURCES },
 	livenessHealthCheckType = "fruster-health",
 	changeCause = "",
@@ -37,14 +38,14 @@ export function deployment({
 	image: string;
 	imageTag?: string;
 	replicas?: number;
-	configName?: string;
+	env?: { [x: string]: string };
 	resources?: { cpu: string; mem: string };
 	livenessHealthCheckType?: string;
 	changeCause?: string;
 	imagePullSecret?: string;
 	hasGlobalConfig?: boolean;
 	hasGlobalSecrets?: boolean;
-}): Deployment {
+}): k8s.V1Deployment {
 	const [memReq, memLimit] = (resources.mem || DEFAULT_MEM_RESOURCES).split("/");
 	const [cpuReq, cpuLimit] = (resources.cpu || DEFAULT_CPU_RESOURCES).split("/");
 
@@ -60,7 +61,7 @@ export function deployment({
 					successThreshold: 1,
 					timeoutSeconds: 50,
 			  }
-			: null;
+			: undefined;
 
 	const envFrom = [];
 
@@ -80,12 +81,9 @@ export function deployment({
 		});
 	}
 
-	if (configName) {
-		envFrom.push({
-			secretRef: {
-				name: configName,
-			},
-		});
+	const envRows = [];
+	if (env) {
+		envRows.push(...Object.keys(env).map((k) => ({ name: k, value: env[k] + "" })));
 	}
 
 	return {
@@ -95,7 +93,7 @@ export function deployment({
 			name: appName,
 			namespace,
 			labels: {
-				fruster: "true",
+				fctl: "true",
 				app: appName,
 			},
 			annotations: {
@@ -153,6 +151,7 @@ export function deployment({
 									name: "APP_NAME",
 									value: appName,
 								},
+								...envRows,
 							],
 						},
 					],
@@ -169,37 +168,31 @@ export function deployment({
 	};
 }
 
-export function namespace(name: string) {
+export function namespace(name: string, fctlLabel = true) {
+	const labels = fctlLabel ? { fctl: "true" } : undefined;
 	return {
 		apiVersion: "v1",
 		kind: "Namespace",
 		metadata: {
 			name,
-			labels: {
-				fruster: "true",
-			},
+			labels,
 		},
 	};
 }
 
-export function appConfigSecret(namespace: string, serviceName: string, config: any): Secret {
-	Object.keys(config).forEach((key) => {
-		config[key] = Buffer.from(config[key] + "").toString("base64");
-	});
-
+export function appConfigMap(namespace: string, serviceName: string, config: any): ConfigMap {
 	return {
 		apiVersion: "v1",
 		data: config,
-		kind: "Secret",
+		kind: "ConfigMap",
 		metadata: {
 			labels: {
 				app: serviceName,
-				fruster: "true",
+				fctl: "true",
 			},
 			name: serviceName + "-config",
 			namespace,
 		},
-		type: "Opaque",
 	};
 }
 
@@ -214,7 +207,7 @@ export function secret(namespace: string, name: string, config: any): Secret {
 		kind: "Secret",
 		metadata: {
 			labels: {
-				fruster: "true",
+				fctl: "true",
 			},
 			name,
 			namespace,
@@ -230,7 +223,7 @@ export function configMap(namespace: string, name: string, config: any): ConfigM
 		kind: "ConfigMap",
 		metadata: {
 			labels: {
-				fruster: "true",
+				fctl: "true",
 			},
 			name,
 			namespace,

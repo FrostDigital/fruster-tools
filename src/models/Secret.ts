@@ -1,12 +1,3 @@
-export interface Secret {
-	kind: string;
-	apiVersion: string;
-	metadata: {
-		name: string;
-		namespace: string;
-		annotations?: { [x: string]: string };
-		labels?: { [x: string]: string };
-	};
-	data: { [x: string]: string };
-	type?: string;
-}
+import k8s from "@kubernetes/client-node";
+
+export interface Secret extends k8s.V1Secret {}

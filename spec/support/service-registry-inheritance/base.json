@@ -3,10 +3,12 @@
 	"env": {
 		"LOG_LEVEL": "DEBUG"
 	},
+	"apiVersion": "1",
 	"services": [
 		{
 			"name": "fruster-api-gateway",
 			"repo": "http://github.com/frostdigital/fruster-api-gateway",
+			"image": "fruster/fruster-api-gateway",
 			"env": {
 				"FOO": "FOO",
 				"HELLO_FROM_BASE": "true"

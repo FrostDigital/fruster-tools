@@ -19,12 +19,13 @@ import { ClusterRole } from "../models/ClusterRole";
 import { ClusterRoleBinding } from "../models/ClusterRoleBinding";
 import { Deployment } from "../models/Deployment";
 import { Secret } from "../models/Secret";
-import { ServiceAccount } from "../models/ServiceAccount";
 import { base64encode } from "../utils";
 import { pressEnterToContinue } from "../utils/cli-utils";
 import { popScreen } from "./engine";
 
 const defaultVersion = "0.0.5";
+
+const tokenRefresherNamespace = "fctl";
 
 export async function installTokenRefresher() {
 	console.log();
@@ -41,14 +42,17 @@ export async function installTokenRefresher() {
 	);
 	console.log();
 
-	const { namespace, name, version } = await enquirer.prompt<{ namespace: string; name: string; version: string }>([
-		{
-			type: "input",
-			message: "Namespace in which token refresher will be installed",
-			initial: "fruster",
-			name: "namespace",
-			required: true,
-		},
+	const { /*namespace,*/ name, version } = await enquirer.prompt<{
+		/*namespace: string;*/ name: string;
+		version: string;
+	}>([
+		// {
+		// 	type: "input",
+		// 	message: "Namespace in which token refresher will be installed",
+		// 	initial: "fruster",
+		// 	name: "namespace",
+		// 	required: true,
+		// },
 		{
 			type: "input",
 			message: "Name of deployment",
@@ -69,11 +73,11 @@ export async function installTokenRefresher() {
 	// Check if namespace exists or needs to be created
 	const namespaces = await getNamespaces();
 
-	if (!namespaces.find((n) => n.metadata.name === namespace)) {
+	if (!namespaces.find((n) => n.metadata?.name === tokenRefresherNamespace)) {
 		const { confirmCreateNamespace } = await enquirer.prompt<{ confirmCreateNamespace: boolean }>({
 			type: "confirm",
 			name: "confirmCreateNamespace",
-			message: `Namespace ${chalk.magenta(namespace)} does not exist, do you want to create it?`,
+			message: `Namespace ${chalk.magenta(tokenRefresherNamespace)} does not exist, do you want to create it?`,
 		});
 
 		if (!confirmCreateNamespace) {
@@ -81,21 +85,21 @@ export async function installTokenRefresher() {
 			await pressEnterToContinue();
 			return popScreen();
 		} else {
-			await createNamespace(namespace);
-			console.log(`Namespace ${chalk.magenta(namespace)} was created`);
+			await createNamespace(tokenRefresherNamespace, false, false);
+			console.log(`Namespace ${chalk.magenta(tokenRefresherNamespace)} was created`);
 		}
 	}
 
 	// Check if deployment already exists
-	const existingTokenRefresher = await getDeployment(namespace, name);
+	const existingTokenRefresher = await getDeployment(tokenRefresherNamespace, name);
 
 	if (existingTokenRefresher) {
-		log.error(`A deployment with name ${name} in namespace ${namespace} already exists`);
+		log.error(`A deployment with name ${name} in namespace ${tokenRefresherNamespace} already exists`);
 		await pressEnterToContinue();
 		return popScreen();
 	}
 
-	const namespacedName = namespace + ":" + name;
+	const namespacedName = tokenRefresherNamespace + ":" + name;
 
 	// Ensure cluster role
 	const existingClusterRole = await getClusterRole(namespacedName);
@@ -105,7 +109,7 @@ export async function installTokenRefresher() {
 			`ClusterRole ${namespacedName} already exists, keeping that one but make sure that is rules so that token refresher is allowed to list namespaces and CRUD secrets`
 		);
 	} else {
-		await createClusterRole(clusterRole(name, namespace));
+		await createClusterRole(clusterRole(name, tokenRefresherNamespace));
 
 		console.log(`ClusterRole ${chalk.magenta(namespacedName)} was created`);
 	}
@@ -116,35 +120,40 @@ export async function installTokenRefresher() {
 	if (existingClusterRoleBinding) {
 		console.log(`ClusterRoleBinding ${namespacedName} already exists, keeping it as-is`);
 	} else {
-		await createClusterRoleBinding(clusterRoleBinding(name, namespace));
+		await createClusterRoleBinding(clusterRoleBinding(name, tokenRefresherNamespace));
 		console.log(`ClusterRoleBinding ${chalk.magenta(namespacedName)} was created`);
 	}
 
 	// Ensure service account
-	const existingServiceAccount = await getServiceAccount(namespace, name);
+	const existingServiceAccount = await getServiceAccount(tokenRefresherNamespace, name);
 
 	if (existingServiceAccount) {
-		console.log(`ServiceAccount ${name} in namespace ${namespace} already exists, keeping it as-is`);
+		console.log(`ServiceAccount ${name} in namespace ${tokenRefresherNamespace} already exists, keeping it as-is`);
 	} else {
-		await createServiceAccount(namespace, serviceAccount(name, namespace));
+		await createServiceAccount(tokenRefresherNamespace, serviceAccount(name, tokenRefresherNamespace));
 		console.log(`ServiceAccount ${chalk.magenta(name)} was created`);
 	}
 
 	// Create secret
-	const existingSecret = await getSecret(namespace, name);
+	const existingSecret = await getSecret(tokenRefresherNamespace, name);
 
 	if (existingSecret) {
-		console.log(`Secret ${name} in namespace ${namespace} already exists, keeping it as-is`);
+		console.log(`Secret ${name} in namespace ${tokenRefresherNamespace} already exists, keeping it as-is`);
 	} else {
-		await createSecret(namespace, secret(name, namespace));
+		await createSecret(tokenRefresherNamespace, secret(name, tokenRefresherNamespace));
 		console.log(`Secret ${chalk.magenta(name)} was created`);
 	}
 
-	await createDeployment(namespace, deployment(name, namespace, version || defaultVersion));
+	await createDeployment(
+		tokenRefresherNamespace,
+		deployment(name, tokenRefresherNamespace, version || defaultVersion)
+	);
 
 	console.log();
 	log.success(
-		`✅ Created token refresher deployment ${chalk.magenta(name)} in namespace ${chalk.magenta(namespace)}\n`
+		`✅ Created token refresher deployment ${chalk.magenta(name)} in namespace ${chalk.magenta(
+			tokenRefresherNamespace
+		)}\n`
 	);
 
 	await pressEnterToContinue();
@@ -246,7 +255,7 @@ const clusterRoleBinding = (name: string, namespace: string): ClusterRoleBinding
 	],
 });
 
-const serviceAccount = (name: string, namespace: string): ServiceAccount => ({
+const serviceAccount = (name: string, namespace: string) => ({
 	apiVersion: "v1",
 	kind: "ServiceAccount",
 	metadata: {

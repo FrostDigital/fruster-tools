@@ -1,24 +1,16 @@
+import chalk from "chalk";
 import enquirer from "enquirer";
 import { createFrusterNamespace } from "../actions/create-fruster-namespace";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import * as dockerHubClient from "../docker/DockerHubClient";
 import * as dockerRegistryClient from "../docker/DockerRegistryClient";
-import {
-	createAppDeployment,
-	createNamespace,
-	ensureServiceForApp,
-	getConfigMap,
-	getPods,
-	getSecret,
-	setConfig,
-} from "../kube/kube-client";
-import { GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME } from "../kube/kube-templates";
+import { createAppDeployment, ensureServiceForApp, getPods } from "../kube/kube-client";
 import * as log from "../log";
 import { Registry } from "../models/Registry";
 import { ensureLength } from "../utils";
 import { getUsername, pressEnterToContinue, sleep } from "../utils/cli-utils";
 import { parseStringConfigToObj, prettyPrintPods } from "../utils/string-utils";
-import { popScreen } from "./engine";
+import { popScreen, resetScreen } from "./engine";
 
 export async function createApp() {
 	const user = await getUsername();
@@ -29,7 +21,13 @@ export async function createApp() {
 
 	const registries = await getDockerRegistries();
 
-	const { registry, repo, tag } = await selectImage(registries);
+	const res = await selectImage(registries);
+
+	if (!res) {
+		return resetScreen();
+	}
+
+	const { registry, repo, tag } = res;
 
 	const { name, namespace, routable } = await enquirer.prompt<{
 		name: string;
@@ -97,9 +95,6 @@ export async function createApp() {
 	// Ensure namespace (it will not be created if already existing)
 	await createFrusterNamespace(namespace);
 
-	// Create config
-	const appConfigSecret = await setConfig(namespace, name, parsedConfig);
-
 	await createAppDeployment(
 		namespace,
 		{
@@ -115,7 +110,6 @@ export async function createApp() {
 			changeCause: user + " created app using fruster cli",
 			hasGlobalConfig: true,
 			hasGlobalSecrets: true,
-			configName: appConfigSecret.metadata.name,
 		}
 	);
 
@@ -151,8 +145,8 @@ async function selectImage(registries: Registry[]) {
 			message: `${ensureLength(r.registryHost, 50)} ${ensureLength(r.secretName, 20)} ${r.namespace}`,
 		})),
 		{
-			message: `${ensureLength("hub.docker.com", 50)} fruster (public)`,
-			name: "fruster-public",
+			message: `${ensureLength("hub.docker.com", 50)} docker hub (public)`,
+			name: "dockerhub",
 		},
 	];
 
@@ -165,17 +159,21 @@ async function selectImage(registries: Registry[]) {
 
 	let repoChoices = [];
 
-	const isFrusterDockerHub = registry === "fruster-public";
-	const selectedRegistryAuth = isFrusterDockerHub ? undefined : registries.find((r) => r.registryHost === registry);
+	const isDockerHub = registry === "dockerhub";
+	const selectedRegistryAuth = isDockerHub ? undefined : registries.find((r) => r.registryHost === registry);
 
-	if (isFrusterDockerHub) {
-		// List all repos in fruster public repo
-		repoChoices = await (
-			await dockerHubClient.listRepos("fruster")
-		).map((r) => ({
-			message: r,
-			name: r,
-		}));
+	let dockerHubImage = "";
+	let repo = "";
+
+	if (isDockerHub) {
+		const res = await enquirer.prompt<{ dockerHubImage: string }>({
+			name: "dockerHubImage",
+			message: "Enter docker image (including organisation, if any)",
+			initial: "org/repo",
+			type: "input",
+		});
+
+		dockerHubImage = res.dockerHubImage;
 	} else {
 		// List all repos in a private docker registry
 		repoChoices = (
@@ -187,23 +185,26 @@ async function selectImage(registries: Registry[]) {
 			message: r,
 			name: r,
 		}));
-	}
 
-	const { repo } = await enquirer.prompt<{ repo: string }>({
-		type: "select",
-		name: "repo",
-		message: "Select repo:",
-		choices: repoChoices.sort((a, b) => a.name.localeCompare(b.name)),
-	});
+		const res = await enquirer.prompt<{ repo: string }>({
+			type: "select",
+			name: "repo",
+			message: "Select repo:",
+			choices: repoChoices.sort((a, b) => a.name.localeCompare(b.name)),
+		});
+
+		repo = res.repo;
+	}
 
 	let tagChoices = [];
 
-	if (isFrusterDockerHub) {
+	if (isDockerHub) {
+		const [orgOrRepo, repo] = dockerHubImage.split("/");
 		tagChoices = await (
-			await dockerHubClient.listTags("fruster", repo)
+			await dockerHubClient.listTags({ org: repo ? orgOrRepo : undefined, repo: repo ?? orgOrRepo })
 		).map((t) => ({
-			message: t,
-			name: t,
+			message: `${ensureLength(t.name, 30)} ${chalk.dim(t.lastUpdated)}`,
+			name: t.name,
 		}));
 	} else {
 		tagChoices = (
@@ -223,8 +224,8 @@ async function selectImage(registries: Registry[]) {
 
 	return {
 		repo,
-		registry: isFrusterDockerHub
-			? { registryHost: "fruster", dockerAuthToken: "", secretName: "", namespace: "" }
+		registry: isDockerHub
+			? { registryHost: "dockerhub", dockerAuthToken: "", secretName: "", namespace: "" }
 			: registries.find((r) => r.registryHost === registry)!,
 		tag,
 	};

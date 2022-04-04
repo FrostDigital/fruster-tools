@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 
-const { program } = require("commander");
-const { deleteDeployment, deleteSecret, deleteService, deleteReplicaSet } = require("../kube/kube-client");
-const log = require("../log");
-const { validateRequiredArg } = require("../utils/cli-utils");
-const inquirer = require("inquirer");
+import { program } from "commander";
+import { deleteDeployment, deleteReplicaSet, deleteService } from "../kube/kube-client";
+import * as log from "../log";
+import { confirmPrompt, validateRequiredArg } from "../utils/cli-utils";
 
 program
 	.description(
 		`
-Removes an app/service and all resources related to it.
+Removes an app and all resources related to it.
 
 Examples:
 
-$ fruster destroy -a api-gateway -n foo
+$ fctl destroy -a api-gateway -n foo
 `
 	)
 	.option("-a, --app <app name>", "Application name")
@@ -28,20 +27,11 @@ validateRequiredArg(namespace, program, "Namespace is required when destroying a
 
 async function run() {
 	try {
-		const { confirm } = await inquirer.prompt([
-			{
-				type: "confirm",
-				name: "confirm",
-				default: false,
-				message: "DANGER: Are you sure you want to remove " + app + "?",
-			},
-		]);
+		const confirm = await confirmPrompt("DANGER: Are you sure you want to remove " + app + "?", false);
 
 		if (confirm) {
 			await deleteDeployment(namespace, app);
 			log.info("Removed deployment");
-			await deleteSecret(namespace, app + "-config");
-			log.info("Removed config");
 			await deleteReplicaSet(namespace, app);
 			log.info("Removed replica set");
 			if (await deleteService(namespace, app)) {

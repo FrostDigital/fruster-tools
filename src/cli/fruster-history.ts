@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
-const { program } = require("commander");
-const { getReplicaSets } = require("../kube/kube-client");
-const log = require("../log");
-const { validateRequiredArg } = require("../utils/cli-utils");
-const { printTable, getOrSelectNamespace } = require("../utils/cli-utils");
-const moment = require("moment");
-const { CHANGE_CAUSE_ANNOTATION } = require("../kube/kube-constants");
+import { program } from "commander";
+import moment from "moment";
+import { getReplicaSets } from "../kube/kube-client";
+import { CHANGE_CAUSE_ANNOTATION } from "../kube/kube-constants";
+import * as log from "../log";
+import { printTable, validateRequiredArg } from "../utils/cli-utils";
 
 program
 	.description(
@@ -15,29 +14,26 @@ Get release history of an app.
 
 Example:
 
-$ fruster history -a api-gateway
+$ fctl history -a api-gateway -n my-namespace
 `
 	)
-	.option("-n, --namespace <namespace>", "kubernetes namespace app is in")
-	.option("-a, --app <serviceName>", "name of service")
+	.option("-n, --namespace <namespace>", "namespace app is in")
+	.option("-a, --app <app>", "name of service")
 	.parse(process.argv);
 
 const serviceName = program.opts().app;
-let namespace = program.opts().namespace;
+const namespace = program.opts().namespace;
 
 validateRequiredArg(serviceName, program, "Missing app name");
+validateRequiredArg(namespace, program, "Missing namespace");
 
 async function run() {
-	if (!namespace) {
-		namespace = await getOrSelectNamespace(serviceName);
-	}
-
 	const replicaSets = await getReplicaSets(namespace, serviceName);
 
 	const changeCauses = (replicaSets || [])
 		.map((rs) => {
 			const image = rs.spec.template.spec.containers[0].image;
-			const [imageName, imageTag] = image.split(":");
+			const [_imageName, imageTag] = image.split(":");
 
 			return {
 				changeCause: (rs.metadata.annotations || {})[CHANGE_CAUSE_ANNOTATION],

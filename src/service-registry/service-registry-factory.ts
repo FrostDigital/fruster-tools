@@ -73,7 +73,7 @@ function validate(serviceRegistryModel: ServiceRegistryModel) {
 }
 
 function mergeEnv(serviceRegistryChain: ServiceRegistryModel[]) {
-	return deepMerge.all(serviceRegistryChain.map((o) => o.env || {}));
+	return deepMerge.all<{ [x: string]: string }>(serviceRegistryChain.map((o) => o.env || {}));
 }
 
 /**

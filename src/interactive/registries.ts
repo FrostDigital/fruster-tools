@@ -17,7 +17,7 @@ import { formPrompt, pressEnterToContinue, sleep } from "../utils/cli-utils";
 import { backChoice, popScreen, pushScreen, resetScreen, separator } from "./engine";
 
 const tokenRefresherSecret = "token-refresher";
-const tokenRefresherNamespace = "fruster";
+const tokenRefresherNamespace = "fctl";
 const tokenRefresherAppName = "token-refresher";
 
 export async function registries() {
@@ -145,7 +145,7 @@ async function addEcrRegistry() {
 	// Check if namespace exists or needs to be created
 	const namespaces = await getNamespaces();
 
-	if (!namespaces.find((n) => n.metadata.name === newRegistry.namespace)) {
+	if (!namespaces.find((n) => n.metadata?.name === newRegistry.namespace)) {
 		const { confirmCreateNamespace } = await enquirer.prompt<{ confirmCreateNamespace: boolean }>({
 			type: "confirm",
 			name: "confirmCreateNamespace",
@@ -157,12 +157,12 @@ async function addEcrRegistry() {
 			await pressEnterToContinue();
 			return popScreen();
 		} else {
-			await createNamespace(newRegistry.namespace);
+			await createNamespace(newRegistry.namespace, false);
 			console.log(`Namespace ${chalk.magenta(newRegistry.namespace)} was created`);
 		}
 	}
 
-	const existingRegistries: any[] = JSON.parse(base64decode(tokenRefresher!.data.REGISTRIES));
+	const existingRegistries: any[] = JSON.parse(base64decode(tokenRefresher!.data!.REGISTRIES));
 
 	const alreadyExistingReg = existingRegistries.find(
 		(r) => r.name === newRegistry.name && r.namespace === newRegistry.namespace
