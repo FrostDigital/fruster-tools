@@ -21,13 +21,12 @@ import ServiceRegistry from "../service-registry/ServiceRegistry";
 import { confirmPrompt, getUsername } from "../utils/cli-utils";
 import { mergeConfig } from "../utils/config-utils";
 import {
-	disableFrusterHealth,
-	enableFrusterHealth,
 	getDeploymentAppConfig,
 	getDeploymentImage,
 	getNameAndNamespaceOrThrow,
-	hasFrusterHealth,
+	getProbeString,
 	setDeploymentImage,
+	setProbe,
 } from "../utils/kube-utils";
 
 type ReduceType = {
@@ -219,22 +218,19 @@ async function syncConfigurationForApp(
 
 	const updatedDeployment = { ...deployment };
 
-	if (appManifest.livenessHealthCheck === "fruster-health" && !hasFrusterHealth(deployment)) {
+	const existingProbeString = getProbeString(deployment, "liveness");
+	const newProbeString = appManifest.livenessHealthCheck;
+
+	if (existingProbeString !== newProbeString) {
 		hasChange = true;
 		if (preview) {
-			console.log("[" + appManifest.name + "]", chalk.magenta("Enabling fruster health"));
+			console.log(
+				`[${appManifest.name}] Updating liveness health check ${
+					existingProbeString || "none"
+				} -> ${chalk.magenta(newProbeString || "none")}`
+			);
 		} else {
-			enableFrusterHealth(updatedDeployment);
-		}
-	} else if (
-		(!appManifest.livenessHealthCheck || appManifest.livenessHealthCheck === "none") &&
-		hasFrusterHealth(deployment)
-	) {
-		hasChange = true;
-		if (preview) {
-			console.log("[" + appManifest.name + "]", chalk.magenta(`Disabling fruster health`));
-		} else {
-			disableFrusterHealth(updatedDeployment);
+			setProbe(newProbeString || "", updatedDeployment, "liveness");
 		}
 	}
 

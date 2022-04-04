@@ -25,7 +25,7 @@ import {
 	updateConfigMap,
 	updateDeployment,
 } from "../kube/kube-client";
-import { DOMAINS_ANNOTATION, FRUSTER_LIVENESS_ANNOTATION, ROUTABLE_ANNOTATION } from "../kube/kube-constants";
+import { DOMAINS_ANNOTATION } from "../kube/kube-constants";
 import { configMap, GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME } from "../kube/kube-templates";
 import * as log from "../log";
 import { Deployment, Resources } from "../models/Deployment";
@@ -46,7 +46,10 @@ import {
 	getDeploymentContainerResources,
 	getDeploymentImage,
 	getNameAndNamespaceOrThrow,
+	getProbeString,
 	humanReadableResources,
+	parseProbeString,
+	setProbe,
 	updateDeploymentContainerResources,
 } from "../utils/kube-utils";
 import {
@@ -179,6 +182,12 @@ async function viewApp(deployment: Deployment) {
 				name: "resources",
 			},
 			{
+				message: `${ensureLength("Liveness probe", 25)} ${chalk.magenta(
+					getProbeString(deployment, "liveness")
+				)}`,
+				name: "livenessProbe",
+			},
+			{
 				message: `${ensureLength("Add SSL cert", 25)} ${
 					service?.metadata?.annotations
 						? chalk.magenta(service?.metadata.annotations["router.deis.io/certificates"] || "none")
@@ -193,8 +202,6 @@ async function viewApp(deployment: Deployment) {
 			},
 			separator,
 			backChoice,
-
-			// TODO: Health check
 		],
 	});
 
@@ -255,6 +262,14 @@ async function viewApp(deployment: Deployment) {
 				escAction: "back",
 			});
 			break;
+		case "livenessProbe":
+			pushScreen({
+				render: livenessProbe,
+				props: deployment,
+				// name: "addSsl",
+				escAction: "back",
+			});
+			break;
 		case "delete":
 			deleteApp(deployment);
 			break;
@@ -285,15 +300,15 @@ async function showInfo(deployment: Deployment) {
 	terminal.defaultColor("> Showing details for ").green(name + "\n\n");
 
 	// Deep dive into objects to pin point relevant data
-	const { creationTimestamp, annotations } = deployment.metadata || {};
+	const { creationTimestamp } = deployment.metadata || {};
 	const container = deployment.spec?.template.spec?.containers[0];
 	const { limits, requests } = container?.resources || {};
 	const creation = moment(creationTimestamp);
 	const { imageName, imageTag } = parseImage(getDeploymentImage(deployment));
 
-	const { [FRUSTER_LIVENESS_ANNOTATION]: livenesHealthcheck, [ROUTABLE_ANNOTATION]: routable } = annotations || {};
-
 	const domains = service?.metadata?.annotations ? service.metadata.annotations[DOMAINS_ANNOTATION] : "";
+
+	const livenessProbeStr = getProbeString(deployment, "liveness");
 
 	const tableModel = [];
 	tableModel.push(
@@ -315,7 +330,7 @@ async function showInfo(deployment: Deployment) {
 		["Memory request:", requests?.memory || "n/a"],
 		["Memory limit:", limits?.memory || "n/a"],
 		["", ""],
-		["Liveness healthcheck:", livenesHealthcheck || "none"],
+		["Liveness healthcheck:", livenessProbeStr || "none"],
 		["", ""]
 	);
 
@@ -573,7 +588,6 @@ async function changeDomains(deployment: Deployment) {
 		pushScreen({
 			render: removeDomain,
 			props: { deployment, domain: domainAction, existingDomains: domains },
-			// escAction: "back",
 		});
 	}
 }
@@ -698,7 +712,6 @@ async function addDomain({ deployment, existingDomains }: { deployment: Deployme
 	const { config } = await getDeploymentAppConfig(deployment);
 
 	const configMap = configRowsToObj(config);
-	// let config = await getConfig(namespace, name);
 
 	if (!configMap?.PORT) {
 		log.warn(`App is missing config PORT which is required to make app routable`);
@@ -811,5 +824,47 @@ async function viewLogs(deployment: Deployment) {
 	lockEsc();
 	const { namespace, name } = getNameAndNamespaceOrThrow(deployment);
 	await followLogs(namespace, name);
+	popScreen();
+}
+
+async function livenessProbe(deployment: Deployment) {
+	const { namespace, name } = getNameAndNamespaceOrThrow(deployment);
+	const probeStr = getProbeString(deployment, "liveness");
+
+	console.log("Enter liveness probe on format:");
+	console.log();
+	console.log(`${chalk.dim("exec=")}{command}${chalk.dim(";initialDelaySeconds=")}{sec}`);
+	console.log(`${chalk.dim("get=:")}{port}{path}${chalk.dim(";initialDelaySeconds=")}{sec}`);
+	console.log(`${chalk.dim("tcp=")}{port}${chalk.dim(";initialDelaySeconds=")}{sec}`);
+	console.log();
+	// console.log("Éxamples:");
+	// console.log();
+	// console.log("exec=cat /tmp/health;initialDelaySeconds=60");
+	// console.log("get=:8080/healthz;initialDelaySeconds=60");
+	// console.log("tcp=8080;initialDelaySeconds=60");
+
+	const { probe } = await enquirer.prompt<{ probe: string }>({
+		type: "input",
+		name: "probe",
+		message: "Set liveness probe",
+		initial: probeStr,
+	});
+
+	if (probe === probeStr) {
+		console.log("No changes");
+		await pressEnterToContinue();
+		return popScreen();
+	}
+
+	const parsedProbe = parseProbeString(probe);
+
+	console.log(JSON.stringify(parsedProbe, null, 2));
+
+	if (await confirmPrompt("Apply changes?", true)) {
+		setProbe(probe, deployment, "liveness");
+		await updateDeployment(namespace, name, deployment);
+		log.success("✅ Probe was updated");
+		await pressEnterToContinue();
+	}
 	popScreen();
 }

@@ -21,5 +21,5 @@ export interface AppManifest {
 	};
 	env: any;
 	imagePullSecret?: string;
-	livenessHealthCheck?: "fruster-health" | "none";
+	livenessHealthCheck?: string;
 }

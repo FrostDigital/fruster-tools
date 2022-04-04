@@ -2,7 +2,7 @@ import enquirer from "enquirer";
 import { existsSync, writeFileSync } from "fs";
 import { configRowsToObj } from "../actions/update-config";
 import { getConfigMap, getDeployments, getService } from "../kube/kube-client";
-import { DOMAINS_ANNOTATION, FRUSTER_LIVENESS_ANNOTATION } from "../kube/kube-constants";
+import { DOMAINS_ANNOTATION } from "../kube/kube-constants";
 import { GLOBAL_CONFIG_NAME } from "../kube/kube-templates";
 import { AppManifest, ServiceRegistryModel } from "../models/ServiceRegistryModel";
 import { confirmPrompt, pressEnterToContinue, selectNamespace } from "../utils/cli-utils";
@@ -11,6 +11,7 @@ import {
 	getDeploymentContainerResources,
 	getDeploymentImage,
 	getNameAndNamespaceOrThrow,
+	getProbeString,
 } from "../utils/kube-utils";
 import { popScreen } from "./engine";
 
@@ -49,8 +50,6 @@ export async function exportApps() {
 			};
 		}
 
-		const hasFrusterHealth = !!(deployment.metadata?.annotations || {})[FRUSTER_LIVENESS_ANNOTATION];
-
 		const { config } = await getDeploymentAppConfig(deployment);
 
 		apps.push({
@@ -60,7 +59,7 @@ export async function exportApps() {
 			domains,
 			routable: !!svc,
 			resources: appResources,
-			livenessHealthCheck: hasFrusterHealth ? "fruster-health" : undefined,
+			livenessHealthCheck: getProbeString(deployment, "liveness"),
 		});
 	}
 

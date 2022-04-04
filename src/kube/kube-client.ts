@@ -158,7 +158,7 @@ export const createAppDeployment = async (
 		// Use existing number of replicas in update of deployment
 		replicas: existingDeployment ? existingDeployment.spec?.replicas : 1,
 		resources: serviceConfig.resources,
-		livenessHealthCheckType: serviceConfig.livenessHealthCheck,
+		livenessHealthCheck: serviceConfig.livenessHealthCheck,
 		changeCause: opts?.changeCause,
 		imagePullSecret: serviceConfig.imagePullSecret,
 		hasGlobalConfig: opts?.hasGlobalConfig,
