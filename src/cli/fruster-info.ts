@@ -5,10 +5,10 @@ import moment from "moment";
 import { getDeployment, getPods, getService } from "../kube/kube-client";
 import * as log from "../log";
 import { prettyPrintPods } from "../utils";
-import { getOrSelectNamespaceForApp, printTable, validateRequiredArg } from "../utils/cli-utils";
+import { printTable, validateRequiredArg } from "../utils/cli-utils";
 import { getDeploymentContainerResources, getDeploymentImage } from "../utils/kube-utils";
-const { FRUSTER_LIVENESS_ANNOTATION, ROUTABLE_ANNOTATION, DOMAINS_ANNOTATION } = require("../kube/kube-constants");
-const { parseImage } = require("../utils/string-utils");
+import { FRUSTER_LIVENESS_ANNOTATION, ROUTABLE_ANNOTATION, DOMAINS_ANNOTATION } from "../kube/kube-constants";
+import { parseImage } from "../utils/string-utils";
 
 program
 	.description(
@@ -17,23 +17,20 @@ Show info about an application.
 
 Example:
 
-$ fctl info -a api-gateway
+$ fctl info -a api-gateway -n my-namespace
 `
 	)
-	.option("-n, --namespace <namespace>", "kubernetes namespace service is in")
-	.option("-a, --app <serviceName>", "name of service")
+	.option("-n, --namespace <namespace>", "namespace app is in")
+	.option("-a, --app <app>", "name of app")
 	.parse(process.argv);
 
 const serviceName = program.opts().app;
-let namespace = program.opts().namespace;
+const namespace = program.opts().namespace;
 
 validateRequiredArg(serviceName, program, "Missing app name");
+validateRequiredArg(namespace, program, "Missing namespace");
 
 async function run() {
-	if (!namespace) {
-		namespace = await getOrSelectNamespaceForApp(serviceName);
-	}
-
 	// Fetch stuff
 	const deployment = await getDeployment(namespace, serviceName);
 	const pods = await getPods(namespace, serviceName);
@@ -78,7 +75,6 @@ async function run() {
 		["", ""],
 		["Liveness healthcheck:", livenesHealthcheck || "none"],
 		["", ""]
-		// ["Update policy:", deployment.metadata.annotations["keel.sh/policy"]]
 	);
 
 	printTable(tableModel);

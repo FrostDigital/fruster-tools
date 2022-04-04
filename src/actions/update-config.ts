@@ -35,7 +35,7 @@ export async function updateConfig({
 
 	deployment.metadata = deployment.metadata || {};
 
-	const { requiredConfig } = getDeploymentAppConfig(deployment);
+	const { requiredConfig } = await getDeploymentAppConfig(deployment);
 
 	if (set) {
 		(deployment.metadata.annotations || {})[CHANGE_CAUSE_ANNOTATION] = `Config was updated`;

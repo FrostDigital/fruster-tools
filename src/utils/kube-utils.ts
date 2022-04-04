@@ -1,6 +1,9 @@
-import { Deployment } from "../models/Deployment";
-import { FRUSTER_LIVENESS_ANNOTATION, REQUIRED_ENV_CONFIG } from "../kube/kube-constants";
 import k8s from "@kubernetes/client-node";
+import { objToConfigRows } from "../actions/update-config";
+import { getConfigMap } from "../kube/kube-client";
+import { FRUSTER_LIVENESS_ANNOTATION, REQUIRED_ENV_CONFIG } from "../kube/kube-constants";
+import { GLOBAL_CONFIG_NAME } from "../kube/kube-templates";
+import { Deployment } from "../models/Deployment";
 
 export function hasFrusterHealth(deployment: Deployment) {
 	return (deployment.metadata?.annotations || {})[FRUSTER_LIVENESS_ANNOTATION] === "fruster-health";
@@ -36,13 +39,28 @@ export function disableFrusterHealth(deployment: Deployment) {
 	ctn.livenessProbe = undefined;
 }
 
-export function getDeploymentAppConfig(deployment: Deployment): {
+export async function getDeploymentAppConfig(
+	deployment: Deployment,
+	includeGlobalConfig?: boolean
+): Promise<{
 	requiredConfig: { name: string; value: string }[];
 	config: { name: string; value: string }[];
-} {
+	globalConfig?: { name: string; value: string }[];
+}> {
 	const ctn = getFirstContainerOrThrow(deployment);
 
 	const existingConfig = ctn.env || [];
+
+	let globalConfig: { name: string; value: string }[] | undefined = undefined;
+
+	if (includeGlobalConfig) {
+		const { namespace } = getNameAndNamespaceOrThrow(deployment);
+		const res = await getConfigMap(namespace, GLOBAL_CONFIG_NAME);
+
+		if (res?.data) {
+			globalConfig = objToConfigRows(res.data);
+		}
+	}
 
 	return {
 		requiredConfig: existingConfig
@@ -51,6 +69,7 @@ export function getDeploymentAppConfig(deployment: Deployment): {
 		config: existingConfig
 			.filter((c) => !REQUIRED_ENV_CONFIG.includes(c.name))
 			.map((c) => ({ name: c.name, value: c.value as string })),
+		globalConfig,
 	};
 }
 

@@ -52,7 +52,7 @@ export async function namespaces() {
 		`${chalk.magenta(`Found ${namespaceChoices.length} namespace(s)`)}\nSelect with arrow keys and press enter`
 	);
 
-	console.log(chalk.dim("Only fruster namespaces will show (those labeled 'fctl=true')"));
+	console.log(chalk.dim("Only namespaces labeled fctl are visible"));
 	console.log();
 
 	const { ns } = await enquirer.prompt<{ ns: any }>([

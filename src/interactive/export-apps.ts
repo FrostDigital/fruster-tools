@@ -51,7 +51,7 @@ export async function exportApps() {
 
 		const hasFrusterHealth = !!(deployment.metadata?.annotations || {})[FRUSTER_LIVENESS_ANNOTATION];
 
-		const { config } = getDeploymentAppConfig(deployment);
+		const { config } = await getDeploymentAppConfig(deployment);
 
 		apps.push({
 			name,

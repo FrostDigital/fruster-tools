@@ -7,6 +7,7 @@ program
 	.action(start)
 	.version("0.0.1")
 	.command("apps", "list apps/services")
+	.command("sync", "sync service registry file with deployed apps")
 	.command("config", "set/unset/get config for app(s)")
 	.command("create", "create a single apps or multiple apps defined in service registry")
 	.command("deploy", "deploy new image tag")

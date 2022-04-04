@@ -7,7 +7,7 @@ import { followLogs } from "../actions/follow-logs";
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
 	// .option("-l, --lines", "number of lines to show, defaults to 100")
-	.option("-a, --app <serviceName>", "name of service")
+	.option("-a, --app <app>", "name of service")
 	// .option("-f, --follow", "follow log stream")
 	// .option("-t, --tail <num>", "number of lines to show, defaults to 100")
 	.description(

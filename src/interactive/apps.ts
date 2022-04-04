@@ -340,7 +340,7 @@ async function editConfig(deployment: Deployment) {
 	// Refresh deployment
 	deployment = (await getDeployment(namespace, name)) as Deployment;
 
-	const { config } = getDeploymentAppConfig(deployment);
+	const { config } = await getDeploymentAppConfig(deployment);
 
 	terminal.defaultColor("> Showing config for ").green(name + "\n\n");
 
@@ -463,11 +463,12 @@ async function changeVersion(deployment: any) {
 			name: t,
 		}));
 	} else {
-		choices = await (
-			await dockerHubClient.listTags(org, imageName)
-		).map((t) => ({
-			message: `${ensureLength(t, 20)} ${imageTag === t ? chalk.green("current") : ""}`,
-			name: t,
+		const tags = await dockerHubClient.listTags({ org, repo: imageName });
+		choices = tags.map((t) => ({
+			message: `${ensureLength(t.name, 20)} ${chalk.dim(t.lastUpdated)} ${
+				imageTag === t.name ? chalk.green("current") : ""
+			}`,
+			name: t.name,
 		}));
 	}
 
@@ -694,7 +695,7 @@ async function addDomain({ deployment, existingDomains }: { deployment: Deployme
 		parsedDomains = [...existingDomains.split(","), ...parsedDomains];
 	}
 
-	const { config } = getDeploymentAppConfig(deployment);
+	const { config } = await getDeploymentAppConfig(deployment);
 
 	const configMap = configRowsToObj(config);
 	// let config = await getConfig(namespace, name);
@@ -746,7 +747,7 @@ async function removeDomain({
 
 	if (!confirm) return popScreen();
 
-	const { config } = getDeploymentAppConfig(deployment);
+	const { config } = await getDeploymentAppConfig(deployment);
 
 	const configMap = configRowsToObj(config);
 

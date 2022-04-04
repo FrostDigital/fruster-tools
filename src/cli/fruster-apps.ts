@@ -9,8 +9,7 @@ import { printTable } from "../utils/cli-utils";
 
 program
 	.description(
-		`
-Lists all apps.
+		`Lists all apps.
 
 Examples:
 

@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 
-const program = require("commander").program;
-const { getDeployment } = require("../kube/kube-client");
-const log = require("../log");
-const { validateRequiredArg, getOrSelectNamespaceForApp } = require("../utils/cli-utils");
-const { getDeploymentAppConfig } = require("../utils/kube-utils");
+import { program } from "commander";
+import chalk from "chalk";
+import * as log from "../log";
+import { getOrSelectNamespaceForApp, validateRequiredArg } from "../utils/cli-utils";
+import { getDeployment } from "../kube/kube-client";
+import { getDeploymentAppConfig } from "../utils/kube-utils";
 
 program
 	.option("-n, --namespace <namespace>", "kubernetes namespace that services operates in")
-	.option("-a, --app <serviceName>", "name of app")
+	.option("-a, --app <app>", "name of app")
+	// .option("-g, --global", "if to get global config only")
 	.description(
-		`
-Get config for an app.
+		`Get config for an app.
 
 Example:
 
 # Get config for app named api-gateway
-$ fctl config get -a api-gateway -n paceup
+$ fctl config get -a api-gateway -n my-namespace
 `
 	)
 	.parse(process.argv);
@@ -39,9 +40,13 @@ async function run() {
 			return process.exit(1);
 		}
 
-		const { config } = getDeploymentAppConfig(deployment);
+		const { config, globalConfig } = await getDeploymentAppConfig(deployment, true);
 
-		log.success(`Got config for app ${app}`);
+		log.success(`Got config for app ${app}:\n`);
+
+		for (const row of globalConfig || []) {
+			console.log(chalk.cyan(`${row.name}="${row.value}" ${chalk.bold("(GC)")}`));
+		}
 
 		for (const row of config) {
 			log.info(`${row.name}="${row.value}"`);
