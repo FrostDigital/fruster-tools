@@ -19,7 +19,25 @@ export async function cloneApp(namespace: string, name: string, newName: string)
 
 		existingDeployment.metadata.name = newName;
 
+		if (existingDeployment.metadata.labels) {
+			existingDeployment.metadata.labels.app = newName;
+		}
+
+		if (existingDeployment.spec?.selector.matchLabels) {
+			existingDeployment.spec.selector.matchLabels.app = newName;
+		}
+
+		if (existingDeployment.spec?.template.metadata) {
+			existingDeployment.spec.template.metadata.name = newName;
+		}
+
+		if (existingDeployment.spec?.template.metadata?.labels) {
+			existingDeployment.spec.template.metadata.labels.app = newName;
+		}
+
 		const container = getFirstContainerOrThrow(existingDeployment);
+
+		container.name = newName;
 
 		for (const env of container.env || []) {
 			if (REQUIRED_ENV_CONFIG.includes(env.name)) {
