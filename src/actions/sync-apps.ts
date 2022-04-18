@@ -143,9 +143,7 @@ export async function syncApps(namespace: string, serviceRegistryFilePath: strin
 					imagePullSecret: privateReg?.secretName,
 				},
 				{
-					changeCause: user + " created app using fruster cli",
-					hasGlobalConfig: true,
-					hasGlobalSecrets: true,
+					changeCause: user + " created app using fctl",
 				}
 			);
 			log.success(`✅ ${app.name} was created`);
@@ -233,6 +231,8 @@ async function syncConfigurationForApp(
 			setProbe(newProbeString || "", updatedDeployment, "liveness");
 		}
 	}
+
+	// TODO: Sync resource limits
 
 	const { config } = await getDeploymentAppConfig(updatedDeployment);
 

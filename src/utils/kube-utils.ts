@@ -202,9 +202,9 @@ export function getProbeString(deployment: Deployment, type: "liveness" | "readi
 	}
 }
 
-function getFirstContainerOrThrow(deployment: Deployment) {
+export function getFirstContainerOrThrow(deployment: Deployment) {
 	if (!deployment.spec?.template.spec?.containers) {
-		throw new Error("Deployment is missig spec.template.spec.containers");
+		throw new Error("Deployment is missing spec.template.spec.containers");
 	}
 	return deployment.spec.template.spec.containers[0];
 }

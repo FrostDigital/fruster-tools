@@ -25,8 +25,6 @@ export function deployment({
 	livenessHealthCheck,
 	changeCause = "",
 	imagePullSecret,
-	hasGlobalConfig = false,
-	hasGlobalSecrets = false,
 }: {
 	namespace: string;
 	appName: string;
@@ -38,8 +36,6 @@ export function deployment({
 	livenessHealthCheck?: string;
 	changeCause?: string;
 	imagePullSecret?: string;
-	hasGlobalConfig?: boolean;
-	hasGlobalSecrets?: boolean;
 }): k8s.V1Deployment {
 	const [memReq, memLimit] = (resources.mem || DEFAULT_MEM_RESOURCES).split("/");
 	const [cpuReq, cpuLimit] = (resources.cpu || DEFAULT_CPU_RESOURCES).split("/");
@@ -50,21 +46,17 @@ export function deployment({
 
 	const envFrom = [];
 
-	if (hasGlobalConfig) {
-		envFrom.push({
-			configMapRef: {
-				name: GLOBAL_CONFIG_NAME,
-			},
-		});
-	}
+	envFrom.push({
+		configMapRef: {
+			name: GLOBAL_CONFIG_NAME,
+		},
+	});
 
-	if (hasGlobalSecrets) {
-		envFrom.push({
-			secretRef: {
-				name: GLOBAL_SECRETS_NAME,
-			},
-		});
-	}
+	envFrom.push({
+		secretRef: {
+			name: GLOBAL_SECRETS_NAME,
+		},
+	});
 
 	const envRows = [];
 	if (env) {

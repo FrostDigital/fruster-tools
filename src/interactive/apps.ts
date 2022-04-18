@@ -2,6 +2,7 @@ import chalk from "chalk";
 import enquirer from "enquirer";
 import moment from "moment";
 import { terminal } from "terminal-kit";
+import { cloneApp } from "../actions/clone-app";
 import { followLogs } from "../actions/follow-logs";
 import { getDockerRegistries } from "../actions/get-docker-registries";
 import { getLogs } from "../actions/get-logs";
@@ -197,6 +198,10 @@ async function viewApp(deployment: Deployment) {
 			},
 			separator,
 			{
+				message: "Clone app",
+				name: "clone",
+			},
+			{
 				message: chalk.red("Delete app"),
 				name: "delete",
 			},
@@ -278,6 +283,13 @@ async function viewApp(deployment: Deployment) {
 				render: viewLogs,
 				props: deployment,
 				//escAction: "back",
+			});
+			break;
+		case "clone":
+			pushScreen({
+				render: clone,
+				props: deployment,
+				escAction: "back",
 			});
 			break;
 		default:
@@ -866,5 +878,27 @@ async function livenessProbe(deployment: Deployment) {
 		log.success("✅ Probe was updated");
 		await pressEnterToContinue();
 	}
+	popScreen();
+}
+
+async function clone(deployment: Deployment) {
+	const { namespace, name } = getNameAndNamespaceOrThrow(deployment);
+
+	const { newName } = await enquirer.prompt<{ newName: string }>({
+		type: "input",
+		name: "newName",
+		message: "Enter name of new app",
+		initial: name + "-clone",
+		validate: (val) => val.trim().length > 0 || "Invalid name",
+	});
+
+	try {
+		await cloneApp(namespace, name, newName);
+	} catch (err) {
+		log.error("Failed to clone app");
+		console.error(err);
+	}
+
+	await pressEnterToContinue();
 	popScreen();
 }

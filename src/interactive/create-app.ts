@@ -107,9 +107,7 @@ export async function createApp() {
 			livenessHealthCheck: healthCheckType === "fruster-health" ? "fruster-health" : undefined,
 		},
 		{
-			changeCause: user + " created app using fruster cli",
-			hasGlobalConfig: true,
-			hasGlobalSecrets: true,
+			changeCause: user + " created app using fctl",
 		}
 	);
 

@@ -80,9 +80,7 @@ export const getNamespaces = async (): Promise<k8s.V1Namespace[]> => {
 export const getDeployment = async (namespace: string, name: string): Promise<Deployment | null> => {
 	try {
 		const { body } = await appsClient.readNamespacedDeployment(name, namespace);
-
-		// TODO: Quick fix, use V1Deployment and remove Deployment model
-		return body as Deployment;
+		return body;
 	} catch (err: any) {
 		if (err.response.statusCode !== 404) throw err;
 		return null;
@@ -143,7 +141,7 @@ export const deleteDeployment = async (namespace: string, name: string) => {
 export const createAppDeployment = async (
 	namespace: string,
 	serviceConfig: AppManifest,
-	opts?: { changeCause: string; hasGlobalConfig?: boolean; hasGlobalSecrets?: boolean }
+	opts?: { changeCause: string }
 ) => {
 	const existingDeployment = await getDeployment(namespace, serviceConfig.name);
 
@@ -162,8 +160,6 @@ export const createAppDeployment = async (
 		livenessHealthCheck: serviceConfig.livenessHealthCheck,
 		changeCause: opts?.changeCause,
 		imagePullSecret: serviceConfig.imagePullSecret,
-		hasGlobalConfig: opts?.hasGlobalConfig,
-		hasGlobalSecrets: opts?.hasGlobalSecrets,
 		env: serviceConfig.env,
 	});
 
@@ -312,7 +308,7 @@ export const updateConfigMap = async (
 	}
 };
 
-export const createService = async (namespace: string, body: Service) => {
+export const createService = async (namespace: string, body: k8s.V1Service) => {
 	try {
 		await client.createNamespacedService(namespace, body);
 		return true;
