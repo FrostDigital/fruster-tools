@@ -11,6 +11,7 @@ import { updateImage } from "../actions/update-image";
 import * as dockerHubClient from "../docker/DockerHubClient";
 import * as dockerRegistryClient from "../docker/DockerRegistryClient";
 import {
+	createSecret,
 	deleteDeployment,
 	deleteSecret,
 	deleteService,
@@ -25,11 +26,13 @@ import {
 	scaleDeployment,
 	updateConfigMap,
 	updateDeployment,
+	updateService,
 } from "../kube/kube-client";
-import { DOMAINS_ANNOTATION } from "../kube/kube-constants";
-import { configMap, GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME } from "../kube/kube-templates";
+import { CERT_ANNOTATION, DOMAINS_ANNOTATION } from "../kube/kube-constants";
+import { configMap, GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME, secret } from "../kube/kube-templates";
 import * as log from "../log";
 import { Deployment, Resources } from "../models/Deployment";
+import * as k8s from "@kubernetes/client-node";
 import { ensureLength } from "../utils";
 import {
 	clearScreen,
@@ -37,6 +40,7 @@ import {
 	editConfigInEditor,
 	EDIT_GLOBAL_CONFIG_WARNING,
 	formPrompt,
+	openEditor,
 	pressEnterToContinue,
 	printConfigChanges,
 	printTable,
@@ -50,10 +54,13 @@ import {
 	getProbeString,
 	humanReadableResources,
 	parseProbeString,
+	setAnnotation,
+	setLabel,
 	setProbe,
 	updateDeploymentContainerResources,
 } from "../utils/kube-utils";
 import {
+	base64encode,
 	maskStr,
 	parseImage,
 	prettyPrintPods,
@@ -61,7 +68,7 @@ import {
 	validateMemoryResource,
 } from "../utils/string-utils";
 import { createApp } from "./create-app";
-import { backChoice, lockEsc, popScreen, pushScreen, separator } from "./engine";
+import { backChoice, lockEsc, popScreen, pushScreen, resetScreen, separator } from "./engine";
 import { exportApps } from "./export-apps";
 import { importApps } from "./import-apps";
 
@@ -147,7 +154,7 @@ async function viewApp(deployment: Deployment) {
 	const { action } = await enquirer.prompt<{ action: string }>({
 		type: "select",
 		name: "action",
-		message: " App menu",
+		message: "App menu",
 		choices: [
 			separator,
 			{
@@ -189,9 +196,9 @@ async function viewApp(deployment: Deployment) {
 				name: "livenessProbe",
 			},
 			{
-				message: `${ensureLength("Add SSL cert", 25)} ${
+				message: `${ensureLength("Configure SSL", 25)} ${
 					service?.metadata?.annotations
-						? chalk.magenta(service?.metadata.annotations["router.deis.io/certificates"] || "none")
+						? chalk.magenta(service?.metadata.annotations[CERT_ANNOTATION] || "none")
 						: ""
 				}`,
 				name: "addSsl",
@@ -271,7 +278,6 @@ async function viewApp(deployment: Deployment) {
 			pushScreen({
 				render: livenessProbe,
 				props: deployment,
-				// name: "addSsl",
 				escAction: "back",
 			});
 			break;
@@ -827,8 +833,176 @@ async function deleteApp(deployment: Deployment) {
 	popScreen();
 }
 
+const CERT_PLACEHOLDER = `-----BEGIN CERTIFICATE-----
+/ * your SSL certificate here */
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+/* any intermediate certificates */
+-----END CERTIFICATE-----`;
+
+const KEY_PLACEHOLDER = `-----BEGIN RSA PRIVATE KEY-----
+/* your unencrypted private key here */
+-----END RSA PRIVATE KEY-----`;
+
 async function addSsl(deployment: Deployment) {
-	// TODO
+	const { namespace, name } = getNameAndNamespaceOrThrow(deployment);
+
+	let svc = await getService(namespace, name);
+
+	if (!svc) {
+		log.error("App has no service/is not routable");
+		await pressEnterToContinue();
+		popScreen();
+		return;
+	}
+
+	let existingCerts = parseServiceCertAnnotation(svc);
+	const domains = (svc?.metadata?.annotations || {})[DOMAINS_ANNOTATION].split(",");
+
+	const choices = domains.map((d) => {
+		const existingCert = existingCerts.find((ec) => ec.domain === d);
+		return {
+			message:
+				ensureLength(d, 35) + (existingCert ? chalk.green(`SSL enabled 🔐`) : chalk.dim("No SSL/Platform SSL")),
+			name: d,
+		};
+	});
+
+	const { selectedDomain } = await enquirer.prompt<{ selectedDomain: string }>({
+		type: "select",
+		name: "selectedDomain",
+		message: "Select domain for which SSL cert will be configured",
+		choices: [separator, ...choices, separator, backChoice],
+	});
+
+	if (selectedDomain === "back") {
+		popScreen();
+		return;
+	}
+
+	const selectedDomainHasSsl = !!existingCerts.find((ec) => ec.domain === selectedDomain);
+
+	const { action } = await enquirer.prompt<{ action: string }>({
+		type: "select",
+		name: "action",
+		message: "Select SSL action for domain " + selectedDomain,
+		choices: [
+			separator,
+			{
+				message: "Add new SSL cert",
+				name: "addNew",
+			},
+			{
+				message: "Copy from other app",
+				name: "copy",
+				disabled: true, // TODO
+			},
+			{
+				message: chalk.red("Remove SSL cert"),
+				name: "remove",
+				disabled: !selectedDomainHasSsl,
+			},
+		],
+	});
+
+	if (action === "addNew") {
+		let updatedCert = "";
+		let updatedKey = "";
+		try {
+			updatedCert = await openEditor({
+				initialContent: CERT_PLACEHOLDER,
+				guidance: "",
+			});
+		} catch (err) {}
+
+		if (!updatedCert || updatedCert === CERT_PLACEHOLDER) {
+			log.warn("Nothing was entered, aborting...");
+			await sleep(2000);
+			return resetScreen();
+		}
+
+		try {
+			updatedKey = await openEditor({
+				initialContent: KEY_PLACEHOLDER,
+				guidance: "",
+			});
+		} catch (err) {}
+
+		if (!updatedKey || updatedKey === KEY_PLACEHOLDER) {
+			log.warn("Nothing was entered, aborting...");
+			await sleep(2000);
+			return resetScreen();
+		}
+
+		console.log("Updating...");
+
+		const certSecretName = name + "-cert";
+
+		//app: wb-file-service
+		const secretToCreate = secret(namespace, certSecretName, {
+			"tls.crt": updatedCert,
+			"tls.key": updatedKey,
+		});
+
+		setLabel(secretToCreate, { app: name });
+
+		await createSecret(namespace, secretToCreate);
+
+		// Refetch to be somewhat sure it is the latest version
+		svc = await getService(namespace, name);
+
+		if (!svc) {
+			log.error("Failed to get k8s service, please try again");
+			await pressEnterToContinue();
+			return resetScreen();
+		}
+
+		let hasUpdatedCert = false;
+
+		let certStr = parseServiceCertAnnotation(svc)
+			.map((ec) => {
+				if (ec.domain === selectedDomain) {
+					ec.key = name;
+					hasUpdatedCert = true;
+				}
+				return `${ec.domain}:${ec.key}`;
+			})
+			.join(",");
+
+		if (!hasUpdatedCert) {
+			certStr += (certStr ? "," : "") + `${selectedDomain}:${name}`;
+		}
+
+		setAnnotation(svc, { [CERT_ANNOTATION]: certStr });
+
+		await updateService(namespace, name, svc);
+
+		log.success(`✅ SSL certificate was attached to domain ${selectedDomain}`);
+	} else if (action === "copy") {
+		// TODO
+	} else if (action === "remove") {
+		svc = await getService(namespace, name);
+
+		if (!svc) {
+			log.error("Failed to get k8s service, please try again");
+			await pressEnterToContinue();
+			return resetScreen();
+		}
+
+		const certStr = parseServiceCertAnnotation(svc)
+			.filter((cert) => cert.domain !== selectedDomain)
+			.map((ec) => `${ec.domain}:${ec.key}`)
+			.join(",");
+
+		setAnnotation(svc, { [CERT_ANNOTATION]: certStr });
+
+		await updateService(namespace, name, svc);
+		await deleteSecret(namespace, name + "-cert");
+
+		log.success(`✅ SSL certificate was detached`);
+	}
+
+	await pressEnterToContinue();
 	popScreen();
 }
 
@@ -901,4 +1075,16 @@ async function clone(deployment: Deployment) {
 
 	await pressEnterToContinue();
 	popScreen();
+}
+
+function parseServiceCertAnnotation(svc: k8s.V1Service) {
+	return (svc?.metadata?.annotations || {})[CERT_ANNOTATION].split(",")
+		.filter((row) => !!row)
+		.map((row) => {
+			const [domain, key] = row.split(":");
+			return {
+				domain,
+				key,
+			};
+		});
 }

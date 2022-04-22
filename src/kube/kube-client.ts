@@ -373,6 +373,21 @@ export const getService = async (namespace: string, name: string): Promise<k8s.V
 	}
 };
 
+export const updateService = async (namespace: string, name: string, service: k8s.V1Service) => {
+	if (service.metadata) {
+		delete service.metadata.selfLink;
+		// delete service.metadata.resourceVersion;
+		delete service.metadata.uid;
+		delete service.metadata.creationTimestamp;
+	}
+	try {
+		await client.replaceNamespacedService(name, namespace, service);
+		log.debug("Updated service " + name);
+	} catch (err: any) {
+		console.log(err);
+	}
+};
+
 export const deleteService = async (namespace: string, name: string) => {
 	try {
 		await client.deleteNamespacedService(name, namespace);

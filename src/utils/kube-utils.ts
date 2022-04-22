@@ -208,3 +208,17 @@ export function getFirstContainerOrThrow(deployment: Deployment) {
 	}
 	return deployment.spec.template.spec.containers[0];
 }
+
+export function setAnnotation(resource: Deployment | k8s.V1Service | k8s.V1Secret, update: { [x: string]: string }) {
+	resource.metadata = resource.metadata || {};
+	resource.metadata.annotations = resource.metadata.annotations || {};
+	resource.metadata.annotations = { ...resource.metadata.annotations, ...update };
+	return resource;
+}
+
+export function setLabel(resource: Deployment | k8s.V1Service | k8s.V1Secret, update: { [x: string]: string }) {
+	resource.metadata = resource.metadata || {};
+	resource.metadata.labels = resource.metadata.labels || {};
+	resource.metadata.labels = { ...resource.metadata.labels, ...update };
+	return resource;
+}

@@ -139,6 +139,10 @@ async function viewNamespace(ns: Namespace) {
 				name: "globalSecrets",
 			},
 			{
+				message: `${ensureLength("SSL certs", 20)}${chalk.dim("Manage SSL certs")}`,
+				name: "manageSSL",
+			},
+			{
 				message: chalk.red("Delete namespace"),
 				name: "delete",
 			},
@@ -162,7 +166,13 @@ async function viewNamespace(ns: Namespace) {
 				escAction: "back",
 			});
 			break;
-
+		case "manageSSL":
+			pushScreen({
+				render: manageSSL,
+				props: { namespace: ns },
+				escAction: "back",
+			});
+			break;
 		case "delete":
 			deleteNamespace(ns);
 			break;
@@ -384,3 +394,5 @@ async function editConfigMap({
 
 	popScreen();
 }
+
+async function manageSSL({ namespace }: { namespace: Namespace }) {}
