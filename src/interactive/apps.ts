@@ -22,6 +22,7 @@ import {
 	getDeployments,
 	getPods,
 	getSecret,
+	getSecrets,
 	getService,
 	scaleDeployment,
 	updateConfigMap,
@@ -857,7 +858,7 @@ async function addSsl(deployment: Deployment) {
 	}
 
 	let existingCerts = parseServiceCertAnnotation(svc);
-	const domains = (svc?.metadata?.annotations || {})[DOMAINS_ANNOTATION].split(",");
+	const domains = ((svc?.metadata?.annotations || {})[DOMAINS_ANNOTATION] || "").split(",");
 
 	const choices = domains.map((d) => {
 		const existingCert = existingCerts.find((ec) => ec.domain === d);
@@ -895,7 +896,6 @@ async function addSsl(deployment: Deployment) {
 			{
 				message: "Copy from other app",
 				name: "copy",
-				disabled: true, // TODO
 			},
 			{
 				message: chalk.red("Remove SSL cert"),
@@ -979,7 +979,76 @@ async function addSsl(deployment: Deployment) {
 
 		log.success(`✅ SSL certificate was attached to domain ${selectedDomain}`);
 	} else if (action === "copy") {
-		// TODO
+		// List certificates
+
+		const allSecrets = await getSecrets(namespace);
+
+		if (!allSecrets) {
+			return popScreen();
+		}
+
+		const certSecrets = allSecrets.filter(
+			(secret) =>
+				secret.metadata?.name && secret.metadata.name.includes("-cert") && !!secret.metadata.labels?.fctl
+		);
+
+		if (certSecrets.length === 0) {
+			console.log();
+			console.log("There are no existing certs to copy");
+			await pressEnterToContinue();
+			return popScreen();
+		}
+
+		const { secretName } = await enquirer.prompt<{ secretName: string }>({
+			type: "select",
+			name: "secretName",
+			message: "Select app to copy from ",
+			choices: [
+				separator,
+				...certSecrets.map((secret) => ({
+					message: secret.metadata?.labels?.app || "",
+					name: secret.metadata?.name || "",
+				})),
+			],
+		});
+
+		const secretToCopy = certSecrets.find((s) => s.metadata?.name === secretName);
+
+		if (!secretToCopy) {
+			throw new Error("Failed to find secret, should not happen");
+		}
+
+		const newSecret = secret(
+			namespace,
+			name + "-cert",
+			{
+				"tls.crt": (secretToCopy.data || {})["tls.crt"],
+				"tls.key": (secretToCopy.data || {})["tls.key"],
+			},
+			true
+		);
+
+		setLabel(newSecret, { app: name });
+
+		svc = await getService(namespace, name);
+
+		if (!svc) {
+			log.error("Failed to get k8s service, please try again");
+			await pressEnterToContinue();
+			return resetScreen();
+		}
+
+		let certStr = parseServiceCertAnnotation(svc)
+			.filter((cert) => cert.domain !== selectedDomain)
+			.map((ec) => `${ec.domain}:${ec.key}`)
+			.join(",");
+
+		certStr += (certStr ? "," : "") + `${selectedDomain}:${name}`;
+
+		setAnnotation(svc, { [CERT_ANNOTATION]: certStr });
+
+		await updateService(namespace, name, svc);
+		await createSecret(namespace, newSecret);
 	} else if (action === "remove") {
 		svc = await getService(namespace, name);
 
@@ -1078,7 +1147,8 @@ async function clone(deployment: Deployment) {
 }
 
 function parseServiceCertAnnotation(svc: k8s.V1Service) {
-	return (svc?.metadata?.annotations || {})[CERT_ANNOTATION].split(",")
+	return ((svc?.metadata?.annotations || {})[CERT_ANNOTATION] || "")
+		.split(",")
 		.filter((row) => !!row)
 		.map((row) => {
 			const [domain, key] = row.split(":");

@@ -173,9 +173,9 @@ export function appConfigMap(namespace: string, serviceName: string, config: any
 	};
 }
 
-export function secret(namespace: string, name: string, config: any): Secret {
+export function secret(namespace: string, name: string, config: any, skipBase64Encode = false): Secret {
 	Object.keys(config).forEach((key) => {
-		config[key] = base64encode(config[key] + "");
+		config[key] = skipBase64Encode ? config[key] + "" : base64encode(config[key] + "");
 	});
 
 	return {
