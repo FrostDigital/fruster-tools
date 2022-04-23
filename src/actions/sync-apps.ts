@@ -253,7 +253,11 @@ async function syncConfigurationForApp(
 
 	if (existingImage !== newImage) {
 		hasChange = true;
-		console.log(`[${appManifest.name}] Image updated ${existingImage} -> ${chalk.magenta(appManifest.image)}`);
+		console.log(
+			`[${appManifest.name}] Image updated ${existingImage} -> ${chalk.magenta(
+				appManifest.image + ":" + appManifest.imageTag
+			)}`
+		);
 		setDeploymentImage(deployment, newImage);
 	}
 
