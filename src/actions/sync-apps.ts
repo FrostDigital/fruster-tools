@@ -186,7 +186,7 @@ async function syncConfigurationForApp(
 	const service = await getService(namespace, appManifest.name);
 
 	if (preview) {
-		log.info(`[${appManifest.name}] Checking if ${appManifest.name} has changed...`);
+		log.debug(`[${appManifest.name}] Checking if ${appManifest.name} has changed...`);
 	}
 
 	if (!appManifest.routable && service) {
