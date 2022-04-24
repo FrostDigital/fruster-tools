@@ -29,7 +29,7 @@ import {
 	updateDeployment,
 	updateService,
 } from "../kube/kube-client";
-import { CERT_ANNOTATION, DOMAINS_ANNOTATION } from "../kube/kube-constants";
+import { CERT_ANNOTATION, DOMAINS_ANNOTATION, WHITELIST_ANNOTATION } from "../kube/kube-constants";
 import { configMap, GLOBAL_CONFIG_NAME, GLOBAL_SECRETS_NAME, secret } from "../kube/kube-templates";
 import * as log from "../log";
 import { Deployment, Resources } from "../models/Deployment";
@@ -204,6 +204,14 @@ async function viewApp(deployment: Deployment) {
 				}`,
 				name: "addSsl",
 			},
+			{
+				message: `${ensureLength("IP whitelist", 25)} ${chalk.magenta(
+					service?.metadata?.annotations
+						? chalk.magenta(service?.metadata.annotations[WHITELIST_ANNOTATION] || "-")
+						: ""
+				)}`,
+				name: "whitelist",
+			},
 			separator,
 			{
 				message: "Clone app",
@@ -299,6 +307,12 @@ async function viewApp(deployment: Deployment) {
 				escAction: "back",
 			});
 			break;
+		case "whitelist":
+			pushScreen({
+				render: whitelist,
+				props: deployment,
+				escAction: "back",
+			});
 		default:
 			popScreen();
 			break;
@@ -1144,6 +1158,42 @@ async function clone(deployment: Deployment) {
 
 	await pressEnterToContinue();
 	popScreen();
+}
+
+async function whitelist(deployment: Deployment) {
+	const { namespace, name } = getNameAndNamespaceOrThrow(deployment);
+
+	const svc = await getService(namespace, name);
+
+	if (!svc) {
+		log.warn("k8s service does not exist for app, is the app routable?");
+		await pressEnterToContinue();
+		return popScreen();
+	}
+
+	const existingWhitelist = (svc?.metadata?.annotations || {})[WHITELIST_ANNOTATION] || "";
+
+	const { newWhitelist } = await enquirer.prompt<{ newWhitelist: string }>({
+		type: "input",
+		name: "cidr",
+		message: "Enter comma delimited list of IPs and/or CIDRs",
+		initial: existingWhitelist,
+	});
+
+	if (newWhitelist === existingWhitelist) {
+		console.log("Nothing changed");
+		await sleep(1000);
+		return popScreen();
+	}
+
+	setAnnotation(svc, { [WHITELIST_ANNOTATION]: newWhitelist.trim() });
+
+	await updateService(namespace, name, svc);
+
+	log.success("✅ Whitelist was set to: " + newWhitelist ? newWhitelist : "[none]");
+
+	await pressEnterToContinue();
+	popScreen;
 }
 
 function parseServiceCertAnnotation(svc: k8s.V1Service) {
