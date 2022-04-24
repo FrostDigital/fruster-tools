@@ -936,7 +936,7 @@ async function addSsl(deployment: Deployment) {
 
 		console.log("Updating...");
 
-		const certSecretName = name + "-cert";
+		const certSecretName = getCertSecretName(name, selectedDomain);
 
 		//app: wb-file-service
 		const secretToCreate = secret(namespace, certSecretName, {
@@ -944,7 +944,7 @@ async function addSsl(deployment: Deployment) {
 			"tls.key": updatedKey,
 		});
 
-		setLabel(secretToCreate, { app: name });
+		setLabel(secretToCreate, { app: name, domain: selectedDomain });
 
 		await createSecret(namespace, secretToCreate);
 
@@ -1006,7 +1006,7 @@ async function addSsl(deployment: Deployment) {
 			choices: [
 				separator,
 				...certSecrets.map((secret) => ({
-					message: secret.metadata?.labels?.app || "",
+					message: `${secret.metadata?.labels?.app || ""} (${secret.metadata?.labels?.domain || "n/a"})`,
 					name: secret.metadata?.name || "",
 				})),
 			],
@@ -1020,7 +1020,7 @@ async function addSsl(deployment: Deployment) {
 
 		const newSecret = secret(
 			namespace,
-			name + "-cert",
+			getCertSecretName(name, selectedDomain),
 			{
 				"tls.crt": (secretToCopy.data || {})["tls.crt"],
 				"tls.key": (secretToCopy.data || {})["tls.key"],
@@ -1028,7 +1028,7 @@ async function addSsl(deployment: Deployment) {
 			true
 		);
 
-		setLabel(newSecret, { app: name });
+		setLabel(newSecret, { app: name, domain: selectedDomain });
 
 		svc = await getService(namespace, name);
 
@@ -1066,7 +1066,7 @@ async function addSsl(deployment: Deployment) {
 		setAnnotation(svc, { [CERT_ANNOTATION]: certStr });
 
 		await updateService(namespace, name, svc);
-		await deleteSecret(namespace, name + "-cert");
+		await deleteSecret(namespace, getCertSecretName(name, selectedDomain));
 
 		log.success(`✅ SSL certificate was detached`);
 	}
@@ -1157,4 +1157,8 @@ function parseServiceCertAnnotation(svc: k8s.V1Service) {
 				key,
 			};
 		});
+}
+
+function getCertSecretName(appName: string, domain: string) {
+	return appName + "-" + domain.replace(/\./g, "-") + "-cert";
 }
