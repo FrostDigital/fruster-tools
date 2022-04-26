@@ -213,6 +213,12 @@ async function selectImage(registries: Registry[]) {
 		}));
 	}
 
+	if (repoChoices.length === 0) {
+		console.log("No tags found");
+		await pressEnterToContinue();
+		return resetScreen();
+	}
+
 	const { tag } = await enquirer.prompt<{ tag: string }>({
 		type: "select",
 		name: "tag",
