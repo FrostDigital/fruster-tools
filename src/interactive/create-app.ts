@@ -100,7 +100,7 @@ export async function createApp() {
 		{
 			domains: domains ? domains.split(",").map((d) => d.trim()) : undefined,
 			name,
-			image: registry.registryHost ? [registry.registryHost, repo].join("/") : repo,
+			image: registry.registryHost !== "dockerhub" ? [registry.registryHost, repo].join("/") : repo,
 			imageTag: tag,
 			imagePullSecret: registry.secretName,
 			env: parsedConfig,
@@ -213,7 +213,7 @@ async function selectImage(registries: Registry[]) {
 		}));
 	}
 
-	if (repoChoices.length === 0) {
+	if (tagChoices.length === 0) {
 		console.log("No tags found");
 		await pressEnterToContinue();
 		return resetScreen();
