@@ -1,13 +1,13 @@
 {
 	"name": "@fruster/fctl",
-	"version": "0.0.10",
+	"version": "0.0.11",
 	"scripts": {
 		"test": "ts-node ./spec/support/jasmine-runner.js",
 		"build": "rimraf --no-glob ./dist/ && tsc -p ./tsconfig.dist.json",
 		"prepublish": "npm run build"
 	},
 	"bin": {
-		"fctl": "./dist/cli/fctl.js"
+		"fctl": "dist/cli/fctl.js"
 	},
 	"dependencies": {
 		"@kubernetes/client-node": "^0.10.2",
