@@ -172,6 +172,8 @@ async function selectImage(registries: Registry[]) {
 		});
 
 		dockerHubImage = res.dockerHubImage;
+
+		repo = res.dockerHubImage;
 	} else {
 		// List all repos in a private docker registry
 		repoChoices = (
