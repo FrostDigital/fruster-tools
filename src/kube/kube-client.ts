@@ -4,7 +4,6 @@ import { ClusterRole } from "../models/ClusterRole";
 import { ClusterRoleBinding } from "../models/ClusterRoleBinding";
 import { ConfigMap } from "../models/ConfigMap";
 import { Deployment } from "../models/Deployment";
-import { Service } from "../models/Service";
 import { AppManifest } from "../models/ServiceRegistryModel";
 import { DOMAINS_ANNOTATION } from "./kube-constants";
 import { deployment, namespace, service } from "./kube-templates";
@@ -23,6 +22,7 @@ if (!process.env.CI) {
 	coreClient = kc.makeApiClient(k8s.CoreV1Api);
 	rbacClient = kc.makeApiClient(k8s.RbacAuthorizationV1Api);
 } else {
+	console.warn("WARNING: Running in mocked mode (CI env var is set)");
 	client = {} as k8s.CoreV1Api; // mock if test
 	appsClient = {} as k8s.AppsV1Api; // mock if test
 	coreClient = {} as k8s.CoreV1Api; // mock if test
