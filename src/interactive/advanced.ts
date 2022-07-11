@@ -39,10 +39,14 @@ import { Secret } from "../models/Secret";
 
 const ROUTER_NAMESPACE = "deis";
 const ROUTER_DEPLOYMENT_NAME = "deis-router";
-const ROUTER_BODY_SIZE_ANNOTATION = "router.deis.io/nginx.bodySize";
 // https://github.com/teamhephy/router#body-size
+const ROUTER_BODY_SIZE_ANNOTATION = "router.deis.io/nginx.bodySize";
 const ROUTER_ENFORCE_SSL_ANNOTATION = "router.deis.io/nginx.ssl.enforce";
-const ROUTER_USE_PROXY_PROTOCOL_ANNOTATION = "router.deis.io/nginx.useProxyProtocol";
+// https://github.com/teamhephy/router#use-proxy-protocol
+// const ROUTER_USE_PROXY_PROTOCOL_ANNOTATION = "router.deis.io/nginx.useProxyProtocol";
+
+// TODO: Add support for this annotation on service
+const ROUTER_SERVICE_PROXY_PROTOCOL_ANNOTATION = "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol";
 
 export async function advanced() {
 	const { item } = await enquirer.prompt<{ item: string }>([
@@ -95,7 +99,7 @@ async function manageRouter() {
 					name: "routerSettings",
 					disabled: !existingRouterDeployment,
 				},
-				{ message: "Router SSL", name: "ssl" },
+				{ message: "Router platform SSL", name: "ssl" },
 				separator,
 				backChoice,
 			],
@@ -192,7 +196,7 @@ async function routerSettings(deployment: Deployment) {
 	const updatedAnnotations = await formPrompt<{
 		[ROUTER_BODY_SIZE_ANNOTATION]: string;
 		[ROUTER_ENFORCE_SSL_ANNOTATION]: string;
-		[ROUTER_USE_PROXY_PROTOCOL_ANNOTATION]: string;
+		// [ROUTER_USE_PROXY_PROTOCOL_ANNOTATION]: string;
 	}>({
 		message: "Tune router settings",
 		choices: [
@@ -206,11 +210,11 @@ async function routerSettings(deployment: Deployment) {
 				name: ROUTER_ENFORCE_SSL_ANNOTATION,
 				initial: deployment.metadata?.annotations![ROUTER_ENFORCE_SSL_ANNOTATION] || "false",
 			},
-			{
-				message: "Use proxy protocol",
-				name: ROUTER_USE_PROXY_PROTOCOL_ANNOTATION,
-				initial: deployment.metadata?.annotations![ROUTER_USE_PROXY_PROTOCOL_ANNOTATION] || "false",
-			},
+			// {
+			// 	message: "Use proxy protocol",
+			// 	name: ROUTER_USE_PROXY_PROTOCOL_ANNOTATION,
+			// 	initial: deployment.metadata?.annotations![ROUTER_USE_PROXY_PROTOCOL_ANNOTATION] || "false",
+			// },
 		],
 	});
 
@@ -218,11 +222,9 @@ async function routerSettings(deployment: Deployment) {
 	console.log(JSON.stringify(updatedAnnotations, null, 2));
 
 	await patchDeployment(ROUTER_NAMESPACE, "deis-router", {
-		// body: {
 		metadata: {
 			annotations: updatedAnnotations,
 		},
-		// },
 	});
 
 	console.log("✅ Settings was updated");
@@ -250,6 +252,15 @@ async function sslSettings() {
 	let secret = await getSecret("deis", PLATFORM_SSL_SECRET_NAME);
 
 	if (!secret) {
+		console.log();
+		console.log("Attach a wildcard SSL cert which matches the platfrom domain.");
+		console.log("IMPORTANT: This should not be used if SSL is terminated at load balancer.");
+		console.log();
+
+		if (!(await confirmPrompt("Do you want to enable platform SSL?", false))) {
+			return popScreen();
+		}
+
 		// @ts-ignore I am lazy
 		secret = await createSecret("deis", platformSslSecret);
 
