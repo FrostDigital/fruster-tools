@@ -455,6 +455,8 @@ async function doEditConfig({ deployment, config, isGlobal }: { deployment: any;
 		printConfigChanges(config, updatedConfig);
 
 		if (await confirmPrompt("Do you want to save config?", true)) {
+			const hasPortChanged = config.PORT && updatedConfig.PORT && config.PORT !== updatedConfig.PORT;
+
 			if (isGlobal) {
 				await updateConfigMap(
 					namespace,
@@ -467,6 +469,16 @@ async function doEditConfig({ deployment, config, isGlobal }: { deployment: any;
 					namespace,
 					set: updatedConfig,
 				});
+			}
+
+			if (hasPortChanged) {
+				const service = await getService(namespace, name);
+
+				if (service) {
+					const domains = ((service?.metadata?.annotations || {})[DOMAINS_ANNOTATION] || "").split(",");
+					await ensureServiceForApp(namespace, { name, port: updatedConfig.PORT, domains });
+					log.info(`Updated k8s service to use PORT ${updatedConfig.PORT}`);
+				}
 			}
 			console.log();
 			log.success(`✅ Config was updated`);

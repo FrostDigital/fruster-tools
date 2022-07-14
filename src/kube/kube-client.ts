@@ -341,7 +341,11 @@ export const ensureServiceForApp = async (
 		const existingService = await getService(namespace, name);
 		const existingDomains = (existingService?.metadata?.annotations || {})[DOMAINS_ANNOTATION];
 
-		if (existingService && existingDomains !== domains.join(",")) {
+		if (
+			existingService &&
+			(existingDomains !== domains.join(",") ||
+				(existingService.spec?.ports || [])[0].targetPort !== Number(port))
+		) {
 			existingService.metadata = existingService.metadata || {};
 			existingService.metadata.annotations = existingService.metadata.annotations || {
 				"router.deis.io/maintenance": "False",
@@ -349,6 +353,20 @@ export const ensureServiceForApp = async (
 			};
 
 			existingService.metadata.annotations[DOMAINS_ANNOTATION] = domains.join(",");
+
+			if (!existingService.spec) {
+				throw new Error("spec does not exist (should not happen");
+			}
+
+			existingService.spec.ports = existingService.spec.ports || [
+				{
+					name: "http",
+					port: 80,
+					protocol: "TCP",
+					targetPort: Number(port),
+				},
+			];
+			existingService.spec.ports[0].targetPort = Number(port);
 
 			delete existingService.metadata.selfLink;
 			// delete existingService.metadata.resourceVersion;
