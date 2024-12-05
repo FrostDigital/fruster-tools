@@ -203,7 +203,7 @@ async function selectImage(registries: Registry[]) {
 		tagChoices = await (
 			await dockerHubClient.listTags({ org: repo ? orgOrRepo : undefined, repo: repo ?? orgOrRepo })
 		).map((t) => ({
-			message: `${ensureLength(t.name, 30)} ${chalk.dim(t.lastUpdated)}`,
+			message: `${ensureLength(t.name, 60)} ${chalk.dim(t.lastUpdated)}`,
 			name: t.name,
 		}));
 	} else {
